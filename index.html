@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PROSPEC Inspection Tool</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <!-- SheetJS for Excel read/write -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+
+    <!-- SCREEN 0: Home - All Projects -->
+    <div id="homeScreen" class="screen active">
+        <header class="app-header">
+            <h1>PROSPEC Inspection</h1>
+            <span class="badge">Internal Tool</span>
+        </header>
+
+        <div class="home-actions">
+            <button class="btn btn-primary btn-block" onclick="app.openNewInspection()">+ New Inspection</button>
+            <div class="home-actions-row">
+                <button class="btn btn-outline btn-half" onclick="excelDB.importFromExcel()">Import Excel</button>
+                <button class="btn btn-outline btn-half" onclick="excelDB.exportAllToExcel()">Export All</button>
+            </div>
+            <button class="btn btn-outline btn-block" onclick="app.openReferences()">View Standards &amp; References</button>
+        </div>
+
+        <div class="home-section">
+            <div class="section-header">
+                <h2>All Projects</h2>
+                <span id="projectCount" class="meta-text">0 projects</span>
+            </div>
+
+            <div class="search-bar">
+                <input type="text" id="projectSearch" placeholder="Search projects..." oninput="app.filterProjects()">
+            </div>
+
+            <div id="projectsList" class="projects-list"></div>
+            <div id="emptyProjectsState" class="empty-state" style="display:none;">
+                <p>No inspections yet. Start your first one!</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCREEN 1: New Inspection Form -->
+    <div id="newInspectionScreen" class="screen">
+        <header class="screen-header">
+            <button class="btn-icon" onclick="app.nav('homeScreen')">&#x2190;</button>
+            <div class="screen-header-info">
+                <h2>New Inspection</h2>
+            </div>
+        </header>
+
+        <div class="card inspection-form-card">
+            <div class="form-grid form-grid-two-col">
+            <div class="form-group">
+                <label for="project">Project Name <span class="required">*</span></label>
+                <input type="text" id="project" list="projectNameSuggestions" placeholder="e.g., Milano 8, Taman Supreme" oninput="app.updateProjectSuggestionHint()">
+                <datalist id="projectNameSuggestions"></datalist>
+                <div id="projectSuggestionHint" class="meta-text form-helper-text"></div>
+            </div>
+            <div class="form-group">
+                <label for="unit">Unit / Block <span class="required">*</span></label>
+                <input type="text" id="unit" placeholder="e.g., Block C 1755">
+            </div>
+            <div class="form-group">
+                <label for="inspector">Inspector Name</label>
+                <input type="text" id="inspector" placeholder="e.g., Ahmad Bin Ali">
+            </div>
+            <div class="form-group">
+                <label for="client">Client / Purchaser Name</label>
+                <input type="text" id="client" placeholder="e.g., Dr Alex Pega Mahda">
+            </div>
+            <div class="form-group">
+                <label for="developer">Developer / Contractor</label>
+                <input type="text" id="developer" placeholder="e.g., Kenbest Construction Sdn Bhd">
+            </div>
+            <div class="form-group field-span-full">
+                <label for="address">Property Address</label>
+                <textarea id="address" rows="2" placeholder="Full address of property..."></textarea>
+            </div>
+            </div>
+            <button class="btn btn-primary btn-block" onclick="app.startInspection()">Start Inspection</button>
+        </div>
+    </div>
+
+    <!-- SCREEN 2: Area List -->
+    <div id="areaListScreen" class="screen">
+        <header class="screen-header">
+            <button class="btn-icon" onclick="app.confirmEndInspection()">&#x2190;</button>
+            <div class="screen-header-info">
+                <h2 id="inspectionTitle">Project | Unit</h2>
+                <span id="inspectionMeta" class="meta-text"></span>
+            </div>
+        </header>
+
+        <div class="card">
+            <h3>Select Area to Inspect</h3>
+            <div id="areaButtonsList" class="area-list"></div>
+
+            <div class="add-area-section">
+                <label>Add Custom Area</label>
+                <div class="input-row">
+                    <input type="text" id="customAreaInput" placeholder="e.g., Balcony, Store Room">
+                    <button class="btn btn-success" onclick="app.addNewArea()">+ Add</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="action-bar">
+            <button class="btn btn-primary btn-block" onclick="app.generateSummary()">View Summary</button>
+            <div class="home-actions-row">
+                <button class="btn btn-outline btn-half" onclick="app.exportReport()">Export Word</button>
+                <button class="btn btn-outline btn-half" onclick="excelDB.exportInspectionToExcel(app.currentInspection)">Save to Excel</button>
+            </div>
+            <button class="btn btn-outline btn-block" onclick="app.openReferences()">View Standards &amp; References</button>
+        </div>
+    </div>
+
+    <!-- SCREEN 3: Defect List per Area -->
+    <div id="defectListScreen" class="screen">
+        <header class="screen-header">
+            <button class="btn-icon" onclick="app.nav('areaListScreen')">&#x2190;</button>
+            <div class="screen-header-info">
+                <h2 id="defectListTitle">Area Name</h2>
+                <span id="defectListCount" class="meta-text">0 defects</span>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="app.openDefectForm()">+ New</button>
+        </header>
+
+        <div id="defectListContainer"></div>
+
+        <div id="emptyDefectState" class="empty-state">
+            <p>No defects recorded for this area.</p>
+            <button class="btn btn-primary" onclick="app.openDefectForm()">+ Add First Defect</button>
+        </div>
+    </div>
+
+    <!-- SCREEN 4: Defect Form (Add/Edit) -->
+    <div id="defectFormScreen" class="screen">
+        <header class="screen-header">
+            <button class="btn-icon" onclick="app.nav('defectListScreen')">&#x2190;</button>
+            <div class="screen-header-info">
+                <h2 id="formTitle">New Defect</h2>
+                <span id="formAreaName" class="meta-text"></span>
+            </div>
+        </header>
+
+        <div class="card">
+            <!-- Photo Section -->
+            <div class="form-group">
+                <label>Photos</label>
+                <div class="photo-actions">
+                    <input type="file" id="cameraInput" accept="image/*" capture="environment" onchange="app.handlePhoto(event)" style="display:none;">
+                    <input type="file" id="uploadInput" accept="image/*" multiple onchange="app.handlePhotoUpload(event)" style="display:none;">
+                    <button class="btn btn-secondary btn-half" onclick="document.getElementById('cameraInput').click()">
+                        &#128247; Camera
+                    </button>
+                    <button class="btn btn-secondary btn-half" onclick="document.getElementById('uploadInput').click()">
+                        &#128193; Upload
+                    </button>
+                </div>
+                <button class="btn btn-outline btn-block" onclick="app.focusPasteZone()">Paste Image</button>
+                <div id="photoPasteZone" class="photo-paste-zone" tabindex="0" onpaste="app.handlePaste(event)">
+                    <strong>Paste image from clipboard</strong>
+                    <span>Copy image from WhatsApp Web or screenshot, then click here and press Ctrl+V.</span>
+                </div>
+                <div id="photoPreviewContainer" class="photo-preview-grid"></div>
+            </div>
+
+            <div class="form-group">
+                <label>Defect Category <span class="required">*</span></label>
+                <div id="categorySelection" class="category-chip-grid"></div>
+                <div class="meta-text form-helper-text">You can select more than one category when one defect / photo shows a combined issue.</div>
+                <div id="categoryReferenceWrap" class="category-reference-wrap" style="display:none;">
+                    <div class="category-reference-head">
+                        <strong>Category Reference / Guide</strong>
+                        <span class="meta-text">Official sources with short quoted snippets</span>
+                    </div>
+                    <div id="categoryReferenceList" class="category-reference-list"></div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="severity">Severity <span class="required">*</span></label>
+                <div class="severity-options">
+                    <label class="severity-chip minor">
+                        <input type="radio" name="severity" value="Minor" checked> Minor
+                    </label>
+                    <label class="severity-chip major">
+                        <input type="radio" name="severity" value="Major"> Major
+                    </label>
+                    <label class="severity-chip critical">
+                        <input type="radio" name="severity" value="Critical"> Critical
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="status">Status</label>
+                <select id="status">
+                    <option value="Open">Open</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Resolved">Resolved</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="description">Description <span class="required">*</span></label>
+                <div id="descSuggestionWrap" class="desc-suggestion-wrap" style="display:none;">
+                    <select id="descSuggestion" onchange="app.applyDescSuggestion()">
+                        <option value="">-- Add common defect description --</option>
+                    </select>
+                    <div class="meta-text">You can choose more than one suggestion. Each selection will be added below.</div>
+                </div>
+                <textarea id="description" rows="2" placeholder="What is the exact issue?" oninput="app.refreshRemarksSuggestions()"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="remarks">Remarks</label>
+                <div id="remarksSuggestionWrap" class="desc-suggestion-wrap" style="display:none;">
+                    <select id="remarksSuggestion" onchange="app.applyRemarkSuggestion()">
+                        <option value="">-- Add suggested rectification remark --</option>
+                    </select>
+                    <div class="meta-text">Suggestions are based on the selected category and the defect descriptions added above.</div>
+                </div>
+                <textarea id="remarks" rows="3" placeholder="Suggested rectification notes, standards-based remarks, or your own notes..."></textarea>
+            </div>
+
+            <button id="saveBtn" class="btn btn-primary btn-block" onclick="app.saveDefect()">Save Defect</button>
+            <button id="deleteBtn" class="btn btn-danger btn-block" style="display:none;" onclick="app.deleteDefect()">Delete Defect</button>
+        </div>
+    </div>
+
+    <!-- SCREEN 5: Summary -->
+    <div id="summaryScreen" class="screen">
+        <header class="screen-header">
+            <button class="btn-icon" onclick="app.nav('areaListScreen')">&#x2190;</button>
+            <div class="screen-header-info">
+                <h2>Inspection Summary</h2>
+            </div>
+        </header>
+
+        <div class="card summary-hero">
+            <div class="stat-grid">
+                <div class="stat-card">
+                    <span class="stat-number" id="totalDefectsCount">0</span>
+                    <span class="stat-label">Total Defects</span>
+                </div>
+                <div class="stat-card stat-minor">
+                    <span class="stat-number" id="minorCount">0</span>
+                    <span class="stat-label">Minor</span>
+                </div>
+                <div class="stat-card stat-major">
+                    <span class="stat-number" id="majorCount">0</span>
+                    <span class="stat-label">Major</span>
+                </div>
+                <div class="stat-card stat-critical">
+                    <span class="stat-number" id="criticalCount">0</span>
+                    <span class="stat-label">Critical</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="summary-panels">
+            <div class="card">
+                <h3>By Area</h3>
+                <div id="summaryByArea"></div>
+            </div>
+
+            <div class="card">
+                <h3>By Category</h3>
+                <div id="summaryByCategory"></div>
+            </div>
+
+            <div class="card">
+                <h3>By Status</h3>
+                <div id="summaryByStatus"></div>
+            </div>
+        </div>
+
+        <div class="action-bar">
+            <button class="btn btn-primary btn-block" onclick="app.nav('areaListScreen')">Continue Inspecting</button>
+            <div class="home-actions-row">
+                <button class="btn btn-outline btn-half" onclick="app.exportReport()">Export Word</button>
+                <button class="btn btn-outline btn-half" onclick="excelDB.exportInspectionToExcel(app.currentInspection)">Save to Excel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCREEN 6: Project Detail (View Previous) -->
+    <div id="projectDetailScreen" class="screen">
+        <header class="screen-header">
+            <button class="btn-icon" onclick="app.nav('homeScreen'); app.loadAllProjects();">&#x2190;</button>
+            <div class="screen-header-info">
+                <h2 id="projectDetailTitle">Project Details</h2>
+                <span id="projectDetailMeta" class="meta-text"></span>
+            </div>
+        </header>
+
+        <div class="detail-overview-grid">
+            <div class="card project-detail-card">
+                <div class="card-header-row">
+                    <h3>Project Details</h3>
+                    <span id="projectDetailCreated" class="meta-text"></span>
+                </div>
+                <div id="projectDetailInfo" style="display:none;"></div>
+                <div class="form-grid form-grid-two-col">
+                    <div class="form-group">
+                        <label for="projectDetailProjectInput">Project</label>
+                        <input type="text" id="projectDetailProjectInput" list="projectNameSuggestions" placeholder="Project name">
+                    </div>
+                    <div class="form-group">
+                        <label for="projectDetailUnitInput">Unit / Block</label>
+                        <input type="text" id="projectDetailUnitInput" placeholder="Unit / block">
+                    </div>
+                    <div class="form-group">
+                        <label for="projectDetailInspectorInput">Inspector</label>
+                        <input type="text" id="projectDetailInspectorInput" placeholder="Inspector name">
+                    </div>
+                    <div class="form-group">
+                        <label for="projectDetailClientInput">Client / Purchaser</label>
+                        <input type="text" id="projectDetailClientInput" placeholder="Client name">
+                    </div>
+                    <div class="form-group">
+                        <label for="projectDetailDeveloperInput">Developer / Contractor</label>
+                        <input type="text" id="projectDetailDeveloperInput" placeholder="Developer / contractor">
+                    </div>
+                    <div class="form-group field-span-full">
+                        <label for="projectDetailAddressInput">Property Address</label>
+                        <textarea id="projectDetailAddressInput" rows="3" placeholder="Full address of property..."></textarea>
+                    </div>
+                </div>
+                <button class="btn btn-outline btn-block" onclick="app.saveProjectDetails()">Save Project Details</button>
+            </div>
+
+            <div class="card">
+                <h3>Defect Summary</h3>
+                <div id="projectDetailStats" class="stat-grid"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>All Defects</h3>
+            <div id="projectDetailDefects"></div>
+        </div>
+
+        <div class="action-bar">
+            <button class="btn btn-primary btn-block" onclick="app.resumeFromDetail()">Continue Inspection</button>
+            <div class="home-actions-row">
+                <button class="btn btn-outline btn-half" onclick="app.exportReportFromDetail()">Export Word</button>
+                <button class="btn btn-outline btn-half" onclick="excelDB.exportInspectionToExcel(app.viewingInspection)">Save to Excel</button>
+            </div>
+            <button class="btn btn-danger btn-block" onclick="app.deleteInspection()">Delete Inspection</button>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast"></div>
+
+    <!-- Confirm Dialog -->
+    <div id="confirmDialog" class="dialog-overlay" style="display:none;">
+        <div class="dialog-box">
+            <p id="confirmMessage"></p>
+            <div class="dialog-actions">
+                <button class="btn btn-outline" onclick="app.closeConfirm()">Cancel</button>
+                <button class="btn btn-danger" id="confirmAction">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="referencesDialog" class="dialog-overlay" style="display:none;">
+        <div class="dialog-box references-dialog-box">
+            <div class="references-dialog-header">
+                <h3>Standards &amp; References</h3>
+                <button class="btn-icon btn-icon-sm" onclick="app.closeReferences()">&times;</button>
+            </div>
+            <p class="references-dialog-note">These are the official sources used as the basis for the inspection and rectification suggestions in this tool.</p>
+            <div id="referencesList" class="references-list"></div>
+            <div class="dialog-actions">
+                <button class="btn btn-outline" onclick="app.closeReferences()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden file input for Excel import -->
+    <input type="file" id="excelImportInput" accept=".xlsx,.xls" onchange="excelDB.handleImport(event)" style="display:none;">
+
+    <script src="js/db.js"></script>
+    <script src="js/descriptions.js"></script>
+    <script src="js/remarks.js"></script>
+    <script src="js/references.js"></script>
+    <script src="js/excel.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/export.js"></script>
+</body>
+</html>
