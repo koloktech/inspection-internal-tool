@@ -1,17 +1,32 @@
 /**
- * Word Document (.doc) Report Generator - matches Milano 8 report format.
- * Generates Word-compatible HTML and downloads as .doc file.
- *
- * Sections:
- * 1. Cover / Document Info
- * 2. Disclaimer & Limitation of Liability
- * 3. Brief Summary
- * 4. No Warranty or Financial Liability
- * 5. Scope of Inspection (with sub-sections)
- * 6. Summary of Defects (stats + breakdown)
- * 7. Defect Checklist table (grouped by area, with photos 7cm x 5cm)
- * 8. Signature block
+ * Real .docx report generator with embedded images for better mobile compatibility.
  */
+const REPORT_COLORS = {
+    primary: '2563EB',
+    primaryLight: 'F0F5FF',
+    areaFill: 'E8EEF8',
+    success: '059669',
+    warning: 'D97706',
+    danger: 'DC2626',
+    border: 'CCCCCC',
+    muted: '666666',
+    mutedLight: '999999',
+    priorityFill: 'FFF7ED',
+    priorityBorder: 'F2C078'
+};
+
+const REPORT_LAYOUT = {
+    pageWidth: 11906,
+    margins: { top: 1134, right: 1134, bottom: 1417, left: 1134 },
+    contentWidth: 9638,
+    docInfoWidth: 6800,
+    docInfoColumnWidths: [2500, 4300],
+    statsColumnWidths: [1928, 1928, 1928, 1928, 1926],
+    checklistColumnWidths: [500, 1300, 1500, 3188, 3150],
+    photoMaxWidth: 189,
+    photoMaxHeight: 265
+};
+
 const exportReport = {
     async generate(inspection) {
         if (!inspection) {
@@ -19,446 +34,876 @@ const exportReport = {
             return;
         }
 
+        if (!window.docx) {
+            app.showToast('Word export library is not ready yet. Please try again.', 'error');
+            return;
+        }
+
         const defects = await DB.getDefectsByInspection(inspection.id);
-        const date = new Date(inspection.createdAt).toLocaleDateString('en-MY', {
-            day: 'numeric', month: 'long', year: 'numeric'
-        });
-        const today = new Date().toLocaleDateString('en-MY', {
-            day: 'numeric', month: 'long', year: 'numeric'
-        });
+        const data = buildReportData(inspection, defects);
+        const document = await buildWordDocument(window.docx, data);
+        const blob = await window.docx.Packer.toBlob(document);
 
-        const minorCount = defects.filter(d => d.severity === 'Minor').length;
-        const majorCount = defects.filter(d => d.severity === 'Major').length;
-        const criticalCount = defects.filter(d => d.severity === 'Critical').length;
-        const openCount = defects.filter(d => d.status === 'Open').length;
-        const priorityDefects = defects
-            .filter(d => d.severity === 'Critical' || d.severity === 'Major')
-            .sort((a, b) => {
-                const severityOrder = { Critical: 0, Major: 1 };
-                return (severityOrder[a.severity] ?? 99) - (severityOrder[b.severity] ?? 99);
-            });
-
-        // Group defects by area
-        const byArea = {};
-        defects.forEach(d => {
-            if (!byArea[d.area]) byArea[d.area] = [];
-            byArea[d.area].push(d);
-        });
-
-        // Category summary
-        const catSummary = {};
-        defects.forEach(d => {
-            catSummary[d.category] = (catSummary[d.category] || 0) + 1;
-        });
-
-        // Area summary
-        const areaSummaryParts = [];
-        for (const area of Object.keys(byArea)) {
-            const count = byArea[area].length;
-            const cats = {};
-            byArea[area].forEach(d => { cats[d.category] = (cats[d.category] || 0) + 1; });
-            const catList = Object.entries(cats).map(([c, n]) => `${c} (${n})`).join(', ');
-            areaSummaryParts.push(`<b>${esc(area)}</b>: ${count} defect${count !== 1 ? 's' : ''} &mdash; ${catList}`);
-        }
-
-        // Build defect checklist rows
-        let defectRows = '';
-        let counter = 1;
-
-        for (const area of Object.keys(byArea)) {
-            defectRows += `<tr><td colspan="5" style="background:#e8eef8;font-weight:bold;color:#1e40af;font-size:11pt;padding:8px;letter-spacing:0.5px;">${esc(area).toUpperCase()}</td></tr>`;
-
-            for (const d of byArea[area]) {
-                // Photo cell: 7cm height x 5cm width per photo
-                let photoHtml = '';
-                if (d.photos && d.photos.length > 0) {
-                    photoHtml = d.photos.map(p =>
-                        `<img src="${p}" width="189" height="265" style="width:5cm;height:7cm;object-fit:contain;border:1px solid #ddd;margin:2px 0;display:block;">`
-                    ).join('');
-                } else {
-                    photoHtml = '<i style="color:#bbb;font-size:9pt;">No photo</i>';
-                }
-
-                const remarksText = d.remarks ? `<br><i>Remarks: ${escWithBreaks(d.remarks)}</i>` : '';
-
-                defectRows += `
-                    <tr>
-                        <td style="text-align:center;width:30px;vertical-align:top;padding:6px;">${counter++}</td>
-                        <td style="width:90px;vertical-align:top;padding:6px;">${esc(d.area)}</td>
-                        <td style="width:90px;vertical-align:top;padding:6px;">${esc(d.category)}</td>
-                        <td style="vertical-align:top;padding:6px;">${escWithBreaks(d.description)}${remarksText}</td>
-                        <td style="width:5.5cm;text-align:center;vertical-align:top;padding:6px;">${photoHtml}</td>
-                    </tr>
-                `;
-            }
-        }
-
-        if (defects.length === 0) {
-            defectRows = '<tr><td colspan="5" style="text-align:center;padding:40px;color:#999;">No defects recorded.</td></tr>';
-        }
-
-        const catSummaryHtml = Object.entries(catSummary)
-            .sort((a, b) => b[1] - a[1])
-            .map(([cat, count]) => `<li>${cat}: ${count} defect${count !== 1 ? 's' : ''}</li>`)
-            .join('');
-
-        const referencesHtml = STANDARDS_REFERENCES.map((ref, index) => `
-            <li style="margin-bottom:8px;">
-                <b>${index + 1}. ${esc(ref.title)}</b><br>
-                ${esc(ref.description)}<br>
-                <a href="${esc(ref.url)}">${esc(ref.url)}</a>
-            </li>
-        `).join('');
-
-        let prioritySummaryHtml = '';
-        if (priorityDefects.length > 0) {
-            const criticalAreas = [...new Set(priorityDefects.filter(d => d.severity === 'Critical').map(d => d.area))];
-            const majorAreas = [...new Set(priorityDefects.filter(d => d.severity === 'Major').map(d => d.area))];
-
-            let conclusionText = '';
-            if (criticalCount > 0) {
-                conclusionText = `This project contains <b>${criticalCount}</b> critical defect${criticalCount !== 1 ? 's' : ''} and <b>${majorCount}</b> major defect${majorCount !== 1 ? 's' : ''}. Immediate review and rectification attention is recommended for the critical items identified${criticalAreas.length > 0 ? `, particularly in ${criticalAreas.map(area => `<b>${esc(area)}</b>`).join(', ')}` : ''}.`;
-            } else {
-                conclusionText = `No critical defects were recorded, however <b>${majorCount}</b> major defect${majorCount !== 1 ? 's' : ''} were identified${majorAreas.length > 0 ? ` in areas including ${majorAreas.map(area => `<b>${esc(area)}</b>`).join(', ')}` : ''}. These major items should be prioritised early during rectification planning.`;
-            }
-
-            const priorityItemsHtml = priorityDefects
-                .slice(0, 12)
-                .map(d => `
-                    <li>
-                        <b>${esc(d.severity)}</b> - <b>${esc(d.area)}</b> / ${esc(d.category)}:<br>
-                        ${esc(d.description)}
-                    </li>
-                `).join('');
-
-            const remainingCount = priorityDefects.length - Math.min(priorityDefects.length, 12);
-            const remainingText = remainingCount > 0
-                ? `<p style="margin-top:8px;"><i>Additional ${remainingCount} major / critical item${remainingCount !== 1 ? 's are' : ' is'} listed in the detailed defect checklist section.</i></p>`
-                : '';
-
-            prioritySummaryHtml = `
-                <div style="border:1px solid #f2c078;background:#fff7ed;padding:12px 14px;margin:14px 0 16px;">
-                    <p style="margin-bottom:8px;"><b>Priority Conclusion</b></p>
-                    <p style="margin-bottom:10px;">${conclusionText}</p>
-                    <p style="margin-bottom:6px;"><b>Major / Critical Issues to Note Early:</b></p>
-                    <ul style="margin-left:20px;margin-bottom:0;">${priorityItemsHtml}</ul>
-                    ${remainingText}
-                </div>
-            `;
-        }
-
-        // Dynamic scope text
-        const propertyLocation = `${esc(inspection.unit)}, ${esc(inspection.project)}${inspection.address ? ', ' + esc(inspection.address) : ''}`;
-        const developerName = esc(inspection.developer || 'the Developer');
-        const clientName = esc(inspection.client || '________________');
-
-        // Word-compatible HTML document
-        const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
-<head>
-<meta charset="UTF-8">
-<title>Inspection Report - ${esc(inspection.project)} | ${esc(inspection.unit)}</title>
-<!--[if gte mso 9]>
-<xml>
-<w:WordDocument>
-<w:View>Print</w:View>
-<w:Zoom>100</w:Zoom>
-<w:DoNotOptimizeForBrowser/>
-</w:WordDocument>
-</xml>
-<![endif]-->
-<style>
-    @page {
-        size: A4;
-        margin: 2cm 2cm 2.5cm 2cm;
-    }
-    body {
-        font-family: "Segoe UI", Calibri, Arial, sans-serif;
-        color: #222;
-        font-size: 11pt;
-        line-height: 1.5;
-    }
-
-    /* Cover */
-    .report-cover {
-        text-align: center;
-        padding: 50px 20px 30px;
-        border-bottom: 3px solid #2563eb;
-        margin-bottom: 30px;
-    }
-    .report-cover h1 {
-        font-size: 28pt;
-        color: #2563eb;
-        margin-bottom: 8px;
-    }
-    .report-cover .subtitle {
-        font-size: 16pt;
-        color: #444;
-        margin-bottom: 20px;
-    }
-
-    /* Doc Info Table */
-    .doc-info-table {
-        width: 70%;
-        margin: 0 auto 30px;
-        border-collapse: collapse;
-    }
-    .doc-info-table td {
-        padding: 6px 12px;
-        border: 1px solid #bbb;
-        font-size: 10pt;
-    }
-    .doc-info-table td:first-child {
-        font-weight: bold;
-        background: #f0f5ff;
-        width: 40%;
-    }
-
-    /* Section Titles */
-    .section-num {
-        font-size: 12pt;
-        font-weight: bold;
-        color: #2563eb;
-        margin: 24px 0 8px;
-    }
-    .section-title {
-        font-size: 12pt;
-        font-weight: bold;
-        color: #2563eb;
-        margin: 24px 0 8px;
-        text-transform: uppercase;
-    }
-    .sub-section-title {
-        font-size: 11pt;
-        font-weight: bold;
-        color: #2563eb;
-        margin: 16px 0 6px;
-    }
-
-    .section-content {
-        font-size: 10.5pt;
-        line-height: 1.6;
-        margin-bottom: 12px;
-        text-align: justify;
-    }
-    .section-content p { margin-bottom: 8px; }
-
-    /* Stats Table */
-    .stats-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin: 12px 0 20px;
-    }
-    .stats-table td {
-        text-align: center;
-        padding: 10px 6px;
-        border: 1px solid #ccc;
-        font-size: 10pt;
-    }
-    .stats-table .num { font-size: 22pt; font-weight: bold; display: block; }
-    .stats-table .lbl { font-size: 8pt; text-transform: uppercase; color: #666; font-weight: bold; }
-
-    /* Checklist Table */
-    .checklist-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 10pt;
-        margin-bottom: 20px;
-    }
-    .checklist-table th {
-        background: #2563eb;
-        color: #fff;
-        padding: 8px 6px;
-        font-size: 9pt;
-        text-transform: uppercase;
-        text-align: left;
-        font-weight: bold;
-    }
-    .checklist-table td {
-        padding: 6px;
-        border: 1px solid #ccc;
-        vertical-align: top;
-    }
-
-    /* Signature */
-    .sig-table { width: 100%; margin-top: 50px; }
-    .sig-table td { text-align: center; padding: 6px; vertical-align: top; width: 50%; }
-    .sig-line { border-top: 1px solid #333; margin-top: 60px; padding-top: 6px; font-size: 10pt; }
-    .sig-label { font-size: 9pt; color: #555; }
-
-    /* Page break */
-    .page-break { page-break-before: always; }
-</style>
-</head>
-<body>
-
-<!-- ===== COVER ===== -->
-<div class="report-cover">
-    <h1>HOME DEFECT<br>INSPECTION REPORT</h1>
-    <div class="subtitle">${esc(inspection.project)}</div>
-</div>
-
-<table class="doc-info-table">
-    <tr><td>Revision No</td><td>Revision 00</td></tr>
-    <tr><td>Issued Date</td><td>${today}</td></tr>
-    <tr><td>Title</td><td>${esc(inspection.unit)}, ${esc(inspection.project)}</td></tr>
-    <tr><td>House Owner / Client / Purchaser</td><td>${esc(inspection.client || 'N/A')}</td></tr>
-    <tr><td>Developer / Contractor</td><td>${esc(inspection.developer || 'N/A')}</td></tr>
-    ${inspection.address ? `<tr><td>Property Address</td><td>${esc(inspection.address)}</td></tr>` : ''}
-    <tr><td>Inspection Date</td><td>${date}</td></tr>
-</table>
-
-<!-- ===== 1. DISCLAIMER ===== -->
-<p class="section-num">1.</p>
-<p class="section-title">DISCLAIMER AND LIMITATION OF LIABILITY</p>
-<div class="section-content">
-    <p>This Home Defect Inspection Report is prepared under the supervision of qualified technical personnel registered with the Board of Engineers Malaysia (BEM) and the Malaysia Board of Technologists (MBOT). The findings contained herein represent the professional technical opinion of the Inspector(s) based on engineering principles and building technology standards. As such, the contents of this report are technically substantiated and are intended to serve as a formal record of the property&rsquo;s condition at the time of inspection.</p>
-    <p>Please note: For the purposes of this report, the terms &lsquo;purchaser&rsquo; and &lsquo;client&rsquo; are used interchangeably and refer to the same entity.</p>
-</div>
-
-<!-- ===== 2. BRIEF SUMMARY ===== -->
-<p class="section-num">2.</p>
-<p class="section-title">BRIEF SUMMARY</p>
-<div class="section-content">
-    <p>House defect inspection refers to a non-invasive assessment of property&rsquo;s current conditions. Home inspection offers an opportunity to identify defects during defect liability period (Warranty).</p>
-</div>
-
-<!-- ===== 3. NO WARRANTY ===== -->
-<p class="section-num">3.</p>
-<p class="section-title">NO WARRANTY OR FINANCIAL LIABILITY</p>
-<div class="section-content">
-    <p>This report acts solely as a technical advisory document to assist the Client in identifying rectification needs.</p>
-    <p>This report is not a guarantee of the property&rsquo;s value, future performance, or habitability, nor is it a warranty against future defects.</p>
-    <p>Inspectors act strictly as technical consultants. We expressly disclaim any liability for financial losses, legal disputes, compensation claims, or &ldquo;Loss of Use&rdquo; claims arising between the Client and the Developer. Our role is strictly limited to defect detection; we are not responsible for the successful execution of repairs or the financial costs associated with them.</p>
-</div>
-
-<!-- ===== 4. SCOPE OF INSPECTION ===== -->
-<p class="section-num">4.</p>
-<p class="section-title">SCOPE OF INSPECTION</p>
-<div class="section-content">
-    <p>This report constitutes the inspection process, defined strictly as a Visual, Non-Invasive Inspection of the property. This Report only covers and deals with evidence of defects and relevant technical issues found in the subject property. The inspection is limited to the readily accessible areas of the building and is based on a visual examination of surface work (excluding areas obstructed by furniture and stored items), and the carrying out of standard non-destructive tests.</p>
-</div>
-
-<!-- 4.1 LIMITATIONS -->
-<p class="sub-section-title">4.1. LIMITATIONS AND EXCLUSIONS</p>
-<div class="section-content">
-    <p>The scope is limited to the identification of patent defects (visible imperfections, incomplete works, and non-compliance with visible specifications) that were readily apparent at the time of inspection. This inspection does not cover latent defects (concealed faults), structural integrity verification (unless explicitly specified), soil analysis, or concealed mechanical, electrical, and plumbing (M&amp;E) systems that are buried within walls or slabs.</p>
-</div>
-
-<!-- 4.2 NATURE OF FINDINGS -->
-<p class="sub-section-title">4.2. NATURE OF FINDINGS &amp; DISPUTE RESOLUTION</p>
-<div class="section-content">
-    <p>The identification of defects is based on visual evidence and professional assessment. Where further investigation is required (e.g., confirming the extent of &ldquo;hollowness&rdquo; or tracing &ldquo;leakage&rdquo;), it is the Developer&rsquo;s responsibility to conduct invasive testing to determine the root cause.</p>
-    <p>Should there be any disagreement regarding the identified defects from the Contractor or Developer&rsquo;s side during the rectification process, technical justification and clarification will be required. We remain open to re-evaluating specific findings, provided that valid technical evidence or industry-standard explanations are submitted to substantiate such disagreements.</p>
-</div>
-
-<!-- 4.3 SCOPE -->
-<p class="sub-section-title">4.3. SCOPE</p>
-<div class="section-content">
-    <p>The defect inspection was conducted on the <b>${date}</b> for the property situated at <b>${propertyLocation}</b>, pursuant to the Defect Liability Period (DLP).</p>
-    <p>Based on our assessment, the quality of workmanship in specific areas of the property is unsatisfactory. This report serves as a comprehensive record of the defects identified. We request that <b>${developerName}</b> take immediate remedial action to repair and rectify these defects in accordance with industry standards. Please refer to the attached photographic evidence for the necessary action.</p>
-    <p style="margin-top:30px;">Purchaser,</p>
-    <p style="margin-top:40px;">(________________)</p>
-    <p>NAME: <b>${clientName}</b></p>
-    <p>DATE:</p>
-</div>
-
-<!-- ===== SUMMARY OF DEFECTS ===== -->
-<div class="page-break"></div>
-<p class="section-title">SUMMARY OF DEFECTS</p>
-
-<table class="stats-table">
-    <tr>
-        <td><span class="num" style="color:#2563eb;">${defects.length}</span><span class="lbl">Total Defects</span></td>
-        <td><span class="num" style="color:#059669;">${minorCount}</span><span class="lbl">Minor</span></td>
-        <td><span class="num" style="color:#d97706;">${majorCount}</span><span class="lbl">Major</span></td>
-        <td><span class="num" style="color:#dc2626;">${criticalCount}</span><span class="lbl">Critical</span></td>
-        <td><span class="num" style="color:#d97706;">${openCount}</span><span class="lbl">Open</span></td>
-    </tr>
-</table>
-
-<div class="section-content">
-    <p>In the Defect Summary of the report for <b>${esc(inspection.unit)}, ${esc(inspection.project)}</b>, a total of <b>${defects.length}</b> defects were identified across multiple areas of the property.</p>
-    ${prioritySummaryHtml}
-
-    <p><b>Breakdown by category:</b></p>
-    <ul style="margin-left:20px;margin-bottom:10px;">${catSummaryHtml}</ul>
-
-    <p><b>Breakdown by area:</b></p>
-    <ul style="margin-left:20px;margin-bottom:10px;">${areaSummaryParts.map(s => `<li>${s}</li>`).join('')}</ul>
-</div>
-
-<!-- ===== DEFECT CHECKLIST ===== -->
-<div class="page-break"></div>
-<p class="section-title">DEFECT CHECKLIST</p>
-
-<table class="checklist-table">
-    <thead>
-        <tr>
-            <th style="width:30px;">No</th>
-            <th style="width:90px;">Area</th>
-            <th style="width:90px;">Category</th>
-            <th>Description &amp; Remarks</th>
-            <th style="width:5.5cm;">Photo</th>
-        </tr>
-    </thead>
-    <tbody>
-        ${defectRows}
-    </tbody>
-</table>
-
-<!-- ===== REFERENCES ===== -->
-<div class="page-break"></div>
-<p class="section-title">REFERENCES AND STANDARDS USED</p>
-<div class="section-content">
-    <p>The inspection observations and suggested rectification remarks in this report were prepared with reference to the following official sources, together with the applicable project specifications, manufacturer requirements, and site conditions. This list is not exhaustive and does not replace consultant / engineer instructions where specialist review is required.</p>
-    <ol style="margin-left:20px;margin-bottom:10px;">${referencesHtml}</ol>
-</div>
-
-<!-- ===== SIGNATURE ===== -->
-<table class="sig-table">
-    <tr>
-        <td>
-            <div class="sig-line">Purchaser / Client</div>
-            <div class="sig-label">${esc(inspection.client || 'Name: ________________')}</div>
-            <div class="sig-label">Date: ________________</div>
-        </td>
-        <td>
-            <div class="sig-line">Inspector</div>
-            <div class="sig-label">${esc(inspection.inspector || 'Name: ________________')}</div>
-            <div class="sig-label">Date: ________________</div>
-        </td>
-    </tr>
-</table>
-
-<p style="text-align:center;color:#999;font-size:8pt;margin-top:40px;border-top:1px solid #ddd;padding-top:10px;">
-    Generated by Meem Inspection Tool &middot; ${today}
-</p>
-
-</body>
-</html>`;
-
-        // Download as .doc file
-        const blob = new Blob(['\ufeff' + html], { type: 'application/msword' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `Inspection Report - ${inspection.project} - ${inspection.unit}.doc`.replace(/[/\\?%*:|"<>]/g, '-');
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        downloadBlob(
+            blob,
+            `Inspection Report - ${sanitizeFilenamePart(inspection.project)} - ${sanitizeFilenamePart(inspection.unit)}.docx`
+        );
 
         app.showToast('Word document downloaded', 'success');
     }
 };
 
-function esc(str) {
-    if (!str) return '';
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
+async function buildWordDocument(docxLib, data) {
+    const {
+        AlignmentType,
+        BorderStyle,
+        Document,
+        PageBreak,
+        Paragraph,
+        TextRun
+    } = docxLib;
+
+    const defaultCellBorders = buildBorders(BorderStyle, REPORT_COLORS.border);
+    const noBorders = docxLib.TableBorders.NONE;
+    const content = [];
+
+    content.push(
+        new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 600, after: 80 },
+            children: [
+                new TextRun({
+                    text: 'HOME DEFECT INSPECTION REPORT',
+                    bold: true,
+                    size: 36,
+                    color: REPORT_COLORS.primary
+                })
+            ]
+        }),
+        new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 320 },
+            children: [
+                new TextRun({
+                    text: data.inspection.project,
+                    size: 24,
+                    color: '444444'
+                })
+            ]
+        }),
+        createTable(docxLib, {
+            width: REPORT_LAYOUT.docInfoWidth,
+            columnWidths: REPORT_LAYOUT.docInfoColumnWidths,
+            alignment: AlignmentType.CENTER,
+            rows: data.docInfoRows.map(([label, value]) => createRow(docxLib, [
+                createCell(docxLib, [
+                    createTextParagraph(docxLib, label, {
+                        bold: true,
+                        size: 20
+                    })
+                ], {
+                    shading: { fill: REPORT_COLORS.primaryLight },
+                    width: REPORT_LAYOUT.docInfoColumnWidths[0],
+                    borders: defaultCellBorders
+                }),
+                createCell(docxLib, [
+                    createTextParagraph(docxLib, value, { size: 20 })
+                ], {
+                    width: REPORT_LAYOUT.docInfoColumnWidths[1],
+                    borders: defaultCellBorders
+                })
+            ])),
+            borders: defaultCellBorders
+        }),
+        ...createNumberedSection(docxLib, '1.', 'DISCLAIMER AND LIMITATION OF LIABILITY'),
+        createBodyParagraph(docxLib, 'This Home Defect Inspection Report is prepared under the supervision of qualified technical personnel registered with the Board of Engineers Malaysia (BEM) and the Malaysia Board of Technologists (MBOT). The findings contained herein represent the professional technical opinion of the Inspector(s) based on engineering principles and building technology standards. As such, the contents of this report are technically substantiated and are intended to serve as a formal record of the property\'s condition at the time of inspection.'),
+        createBodyParagraph(docxLib, 'Please note: For the purposes of this report, the terms \'purchaser\' and \'client\' are used interchangeably and refer to the same entity.'),
+        ...createNumberedSection(docxLib, '2.', 'BRIEF SUMMARY'),
+        createBodyParagraph(docxLib, 'House defect inspection refers to a non-invasive assessment of property\'s current conditions. Home inspection offers an opportunity to identify defects during defect liability period (Warranty).'),
+        ...createNumberedSection(docxLib, '3.', 'NO WARRANTY OR FINANCIAL LIABILITY'),
+        createBodyParagraph(docxLib, 'This report acts solely as a technical advisory document to assist the Client in identifying rectification needs.'),
+        createBodyParagraph(docxLib, 'This report is not a guarantee of the property\'s value, future performance, or habitability, nor is it a warranty against future defects.'),
+        createBodyParagraph(docxLib, 'Inspectors act strictly as technical consultants. We expressly disclaim any liability for financial losses, legal disputes, compensation claims, or "Loss of Use" claims arising between the Client and the Developer. Our role is strictly limited to defect detection; we are not responsible for the successful execution of repairs or the financial costs associated with them.'),
+        ...createNumberedSection(docxLib, '4.', 'SCOPE OF INSPECTION'),
+        createBodyParagraph(docxLib, 'This report constitutes the inspection process, defined strictly as a Visual, Non-Invasive Inspection of the property. This Report only covers and deals with evidence of defects and relevant technical issues found in the subject property. The inspection is limited to the readily accessible areas of the building and is based on a visual examination of surface work (excluding areas obstructed by furniture and stored items), and the carrying out of standard non-destructive tests.'),
+        createSubSectionHeading(docxLib, '4.1. LIMITATIONS AND EXCLUSIONS'),
+        createBodyParagraph(docxLib, 'The scope is limited to the identification of patent defects (visible imperfections, incomplete works, and non-compliance with visible specifications) that were readily apparent at the time of inspection. This inspection does not cover latent defects (concealed faults), structural integrity verification (unless explicitly specified), soil analysis, or concealed mechanical, electrical, and plumbing (M&E) systems that are buried within walls or slabs.'),
+        createSubSectionHeading(docxLib, '4.2. NATURE OF FINDINGS & DISPUTE RESOLUTION'),
+        createBodyParagraph(docxLib, 'The identification of defects is based on visual evidence and professional assessment. Where further investigation is required (e.g., confirming the extent of "hollowness" or tracing "leakage"), it is the Developer\'s responsibility to conduct invasive testing to determine the root cause.'),
+        createBodyParagraph(docxLib, 'Should there be any disagreement regarding the identified defects from the Contractor or Developer\'s side during the rectification process, technical justification and clarification will be required. We remain open to re-evaluating specific findings, provided that valid technical evidence or industry-standard explanations are submitted to substantiate such disagreements.'),
+        createSubSectionHeading(docxLib, '4.3. SCOPE'),
+        createBodyParagraph(docxLib, `The defect inspection was conducted on the ${data.inspectionDate} for the property situated at ${data.propertyLocation}, pursuant to the Defect Liability Period (DLP).`),
+        createBodyParagraph(docxLib, `Based on our assessment, the quality of workmanship in specific areas of the property is unsatisfactory. This report serves as a comprehensive record of the defects identified. We request that ${data.developerName} take immediate remedial action to repair and rectify these defects in accordance with industry standards. Please refer to the attached photographic evidence for the necessary action.`),
+        createBodyParagraph(docxLib, 'Purchaser,', { spacing: { before: 220, after: 600 } }),
+        createBodyParagraph(docxLib, '(________________)', { spacing: { after: 120 } }),
+        createBodyParagraph(docxLib, `NAME: ${data.clientName}`, { boldPrefix: 'NAME:' }),
+        createBodyParagraph(docxLib, 'DATE:'),
+        new Paragraph({ children: [new PageBreak()] }),
+        createSectionHeading(docxLib, 'SUMMARY OF DEFECTS')
+    );
+
+    content.push(
+        createTable(docxLib, {
+            width: REPORT_LAYOUT.contentWidth,
+            columnWidths: REPORT_LAYOUT.statsColumnWidths,
+            rows: [
+                createRow(docxLib, data.stats.map(stat => createCell(docxLib, [
+                    new Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        spacing: { after: 40 },
+                        children: [
+                            new TextRun({
+                                text: String(stat.value),
+                                bold: true,
+                                size: 34,
+                                color: stat.color
+                            })
+                        ]
+                    }),
+                    new Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        children: [
+                            new TextRun({
+                                text: stat.label,
+                                bold: true,
+                                size: 16,
+                                color: REPORT_COLORS.muted,
+                                allCaps: true
+                            })
+                        ]
+                    })
+                ], {
+                    width: Math.round(REPORT_LAYOUT.contentWidth / data.stats.length),
+                    borders: defaultCellBorders
+                })))
+            ],
+            borders: defaultCellBorders
+        }),
+        createBodyParagraph(docxLib, `In the Defect Summary of the report for ${data.inspection.unit}, ${data.inspection.project}, a total of ${data.totalDefects} defects were identified across multiple areas of the property.`)
+    );
+
+    if (data.prioritySummary) {
+        content.push(createHighlightBox(docxLib, data.prioritySummary));
+    }
+
+    if (data.categorySummaryLines.length > 0) {
+        content.push(
+            createBodyParagraph(docxLib, 'Breakdown by category:', { bold: true, spacing: { before: 80, after: 50 } }),
+            ...data.categorySummaryLines.map(line => createListParagraph(docxLib, line))
+        );
+    }
+
+    if (data.areaSummaryLines.length > 0) {
+        content.push(
+            createBodyParagraph(docxLib, 'Breakdown by area:', { bold: true, spacing: { before: 80, after: 50 } }),
+            ...data.areaSummaryLines.map(line => createListParagraph(docxLib, line))
+        );
+    }
+
+    content.push(
+        new Paragraph({ children: [new PageBreak()] }),
+        createSectionHeading(docxLib, 'DEFECT CHECKLIST'),
+        await createChecklistTable(docxLib, data, defaultCellBorders),
+        new Paragraph({ children: [new PageBreak()] }),
+        createSectionHeading(docxLib, 'REFERENCES AND STANDARDS USED'),
+        createBodyParagraph(
+            docxLib,
+            'The inspection observations and suggested rectification remarks in this report were prepared with reference to the following official sources, together with the applicable project specifications, manufacturer requirements, and site conditions. This list is not exhaustive and does not replace consultant / engineer instructions where specialist review is required.'
+        ),
+        ...STANDARDS_REFERENCES.flatMap((ref, index) => ([
+            createBodyParagraph(docxLib, `${index + 1}. ${ref.title}`, { bold: true, spacing: { before: 80, after: 30 } }),
+            createBodyParagraph(docxLib, ref.description, { spacing: { after: 20 } }),
+            createBodyParagraph(docxLib, ref.url, { color: REPORT_COLORS.primary, size: 18, spacing: { after: 100 } })
+        ])),
+        createSignatureTable(docxLib, data, noBorders),
+        new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 360 },
+            children: [
+                new TextRun({
+                    text: `Generated by PROSPEC Inspection Tool - ${data.issuedDate}`,
+                    color: REPORT_COLORS.mutedLight,
+                    size: 16
+                })
+            ]
+        })
+    );
+
+    return new Document({
+        creator: 'PROSPEC Inspection Tool',
+        title: `Inspection Report - ${data.inspection.project} | ${data.inspection.unit}`,
+        description: 'Home defect inspection report',
+        sections: [{
+            properties: {
+                page: {
+                    size: { width: REPORT_LAYOUT.pageWidth, height: 16838 },
+                    margin: REPORT_LAYOUT.margins
+                }
+            },
+            children: content
+        }]
+    });
 }
 
-function escWithBreaks(str) {
-    return esc(str).replace(/\n/g, '<br>');
+async function createChecklistTable(docxLib, data, borders) {
+    const { AlignmentType } = docxLib;
+    const rows = [
+        createRow(docxLib, [
+            createHeaderCell(docxLib, 'No', REPORT_LAYOUT.checklistColumnWidths[0]),
+            createHeaderCell(docxLib, 'Area', REPORT_LAYOUT.checklistColumnWidths[1]),
+            createHeaderCell(docxLib, 'Category', REPORT_LAYOUT.checklistColumnWidths[2]),
+            createHeaderCell(docxLib, 'Description & Remarks', REPORT_LAYOUT.checklistColumnWidths[3]),
+            createHeaderCell(docxLib, 'Photo', REPORT_LAYOUT.checklistColumnWidths[4])
+        ])
+    ];
+
+    if (data.totalDefects === 0) {
+        rows.push(
+            createRow(docxLib, [
+                createCell(docxLib, [
+                    new docxLib.Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        spacing: { before: 240, after: 240 },
+                        children: [
+                            new docxLib.TextRun({
+                                text: 'No defects recorded.',
+                                italics: true,
+                                color: REPORT_COLORS.mutedLight
+                            })
+                        ]
+                    })
+                ], {
+                    columnSpan: 5,
+                    borders
+                })
+            ])
+        );
+    } else {
+        let counter = 1;
+        for (const [area, defects] of data.defectsByArea) {
+            rows.push(
+                createRow(docxLib, [
+                    createCell(docxLib, [
+                        createTextParagraph(docxLib, area.toUpperCase(), {
+                            bold: true,
+                            color: REPORT_COLORS.primary,
+                            size: 22
+                        })
+                    ], {
+                        columnSpan: 5,
+                        shading: { fill: REPORT_COLORS.areaFill },
+                        borders
+                    })
+                ])
+            );
+
+            for (const defect of defects) {
+                const photoParagraphs = await createPhotoParagraphs(docxLib, defect.photos || []);
+                const descriptionParagraphs = [
+                    createMultilineParagraph(docxLib, defect.description, { size: 20 })
+                ];
+
+                if (defect.remarks) {
+                    descriptionParagraphs.push(
+                        createMultilineParagraph(docxLib, `Remarks: ${defect.remarks}`, {
+                            size: 18,
+                            italics: true
+                        }, {
+                            spacing: { before: 80 }
+                        })
+                    );
+                }
+
+                rows.push(
+                    createRow(docxLib, [
+                        createCell(docxLib, [
+                            new docxLib.Paragraph({
+                                alignment: AlignmentType.CENTER,
+                                children: [new docxLib.TextRun({ text: String(counter++), size: 20 })]
+                            })
+                        ], {
+                            width: REPORT_LAYOUT.checklistColumnWidths[0],
+                            borders
+                        }),
+                        createCell(docxLib, [
+                            createTextParagraph(docxLib, defect.area, { size: 20 })
+                        ], {
+                            width: REPORT_LAYOUT.checklistColumnWidths[1],
+                            borders
+                        }),
+                        createCell(docxLib, [
+                            createMultilineParagraph(docxLib, defect.categoryLabel, { size: 20 })
+                        ], {
+                            width: REPORT_LAYOUT.checklistColumnWidths[2],
+                            borders
+                        }),
+                        createCell(docxLib, descriptionParagraphs, {
+                            width: REPORT_LAYOUT.checklistColumnWidths[3],
+                            borders
+                        }),
+                        createCell(docxLib, photoParagraphs, {
+                            width: REPORT_LAYOUT.checklistColumnWidths[4],
+                            borders
+                        })
+                    ])
+                );
+            }
+        }
+    }
+
+    return createTable(docxLib, {
+        width: REPORT_LAYOUT.contentWidth,
+        columnWidths: REPORT_LAYOUT.checklistColumnWidths,
+        layout: docxLib.TableLayoutType.FIXED,
+        rows,
+        borders
+    });
+}
+
+async function createPhotoParagraphs(docxLib, photos) {
+    const { AlignmentType, ImageRun, Paragraph, TextRun } = docxLib;
+
+    if (!Array.isArray(photos) || photos.length === 0) {
+        return [
+            new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [
+                    new TextRun({
+                        text: 'No photo',
+                        italics: true,
+                        size: 18,
+                        color: REPORT_COLORS.mutedLight
+                    })
+                ]
+            })
+        ];
+    }
+
+    const paragraphs = [];
+
+    for (const photo of photos) {
+        const imageInfo = dataUrlToImageInfo(photo);
+        if (!imageInfo) {
+            paragraphs.push(
+                new Paragraph({
+                    alignment: AlignmentType.CENTER,
+                    children: [
+                        new TextRun({
+                            text: 'Photo unavailable',
+                            italics: true,
+                            size: 18,
+                            color: REPORT_COLORS.mutedLight
+                        })
+                    ]
+                })
+            );
+            continue;
+        }
+
+        const size = await getContainedImageSize(
+            photo,
+            REPORT_LAYOUT.photoMaxWidth,
+            REPORT_LAYOUT.photoMaxHeight
+        );
+
+        paragraphs.push(
+            new Paragraph({
+                alignment: AlignmentType.CENTER,
+                spacing: { after: 80 },
+                children: [
+                    new ImageRun({
+                        type: imageInfo.type,
+                        data: imageInfo.bytes,
+                        transformation: size
+                    })
+                ]
+            })
+        );
+    }
+
+    return paragraphs;
+}
+
+function buildReportData(inspection, defects) {
+    const inspectionDate = formatReportDate(inspection.createdAt);
+    const issuedDate = formatReportDate(new Date().toISOString());
+    const defectsByArea = groupDefectsByArea(defects);
+    const totalDefects = defects.length;
+    const minorCount = defects.filter(defect => defect.severity === 'Minor').length;
+    const majorCount = defects.filter(defect => defect.severity === 'Major').length;
+    const criticalCount = defects.filter(defect => defect.severity === 'Critical').length;
+    const openCount = defects.filter(defect => defect.status === 'Open').length;
+    const priorityDefects = defects
+        .filter(defect => defect.severity === 'Critical' || defect.severity === 'Major')
+        .sort((a, b) => {
+            const severityOrder = { Critical: 0, Major: 1 };
+            return (severityOrder[a.severity] ?? 99) - (severityOrder[b.severity] ?? 99);
+        });
+
+    const categoryCounts = {};
+    defects.forEach(defect => {
+        getDefectCategories(defect).forEach(category => {
+            categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+        });
+    });
+
+    const areaSummaryLines = defectsByArea.map(([area, areaDefects]) => {
+        const counts = {};
+        areaDefects.forEach(defect => {
+            getDefectCategories(defect).forEach(category => {
+                counts[category] = (counts[category] || 0) + 1;
+            });
+        });
+
+        const categoryText = Object.entries(counts)
+            .map(([category, count]) => `${category} (${count})`)
+            .join(', ');
+
+        return `${area}: ${areaDefects.length} defect${areaDefects.length !== 1 ? 's' : ''}${categoryText ? ` - ${categoryText}` : ''}`;
+    });
+
+    const propertyLocation = [inspection.unit, inspection.project, inspection.address]
+        .filter(Boolean)
+        .join(', ');
+
+    return {
+        inspection,
+        inspectionDate,
+        issuedDate,
+        propertyLocation,
+        developerName: inspection.developer || 'the Developer',
+        clientName: inspection.client || '________________',
+        defectsByArea: defectsByArea.map(([area, areaDefects]) => ([
+            area,
+            areaDefects.map(defect => ({
+                ...defect,
+                categoryLabel: formatDefectCategories(defect)
+            }))
+        ])),
+        totalDefects,
+        stats: [
+            { label: 'Total Defects', value: totalDefects, color: REPORT_COLORS.primary },
+            { label: 'Minor', value: minorCount, color: REPORT_COLORS.success },
+            { label: 'Major', value: majorCount, color: REPORT_COLORS.warning },
+            { label: 'Critical', value: criticalCount, color: REPORT_COLORS.danger },
+            { label: 'Open', value: openCount, color: REPORT_COLORS.warning }
+        ],
+        categorySummaryLines: Object.entries(categoryCounts)
+            .sort((a, b) => b[1] - a[1])
+            .map(([category, count]) => `${category}: ${count} defect${count !== 1 ? 's' : ''}`),
+        areaSummaryLines,
+        prioritySummary: buildPrioritySummary(priorityDefects, majorCount, criticalCount),
+        docInfoRows: [
+            ['Revision No', 'Revision 00'],
+            ['Issued Date', issuedDate],
+            ['Title', `${inspection.unit || 'N/A'}, ${inspection.project || 'N/A'}`],
+            ['House Owner / Client / Purchaser', inspection.client || 'N/A'],
+            ['Developer / Contractor', inspection.developer || 'N/A'],
+            ...(inspection.address ? [['Property Address', inspection.address]] : []),
+            ['Inspection Date', inspectionDate]
+        ]
+    };
+}
+
+function buildPrioritySummary(priorityDefects, majorCount, criticalCount) {
+    if (priorityDefects.length === 0) return null;
+
+    const criticalAreas = [...new Set(priorityDefects.filter(defect => defect.severity === 'Critical').map(defect => defect.area))];
+    const majorAreas = [...new Set(priorityDefects.filter(defect => defect.severity === 'Major').map(defect => defect.area))];
+
+    let conclusion;
+    if (criticalCount > 0) {
+        conclusion = `This project contains ${criticalCount} critical defect${criticalCount !== 1 ? 's' : ''} and ${majorCount} major defect${majorCount !== 1 ? 's' : ''}. Immediate review and rectification attention is recommended for the critical items identified${criticalAreas.length > 0 ? `, particularly in ${criticalAreas.join(', ')}` : ''}.`;
+    } else {
+        conclusion = `No critical defects were recorded, however ${majorCount} major defect${majorCount !== 1 ? 's were' : ' was'} identified${majorAreas.length > 0 ? ` in areas including ${majorAreas.join(', ')}` : ''}. These major items should be prioritised early during rectification planning.`;
+    }
+
+    const items = priorityDefects.slice(0, 12).map(defect =>
+        `${defect.severity} - ${defect.area} / ${formatDefectCategories(defect)}: ${collapseWhitespace(defect.description)}`
+    );
+
+    const remainingCount = priorityDefects.length - items.length;
+    const note = remainingCount > 0
+        ? `Additional ${remainingCount} major / critical item${remainingCount !== 1 ? 's are' : ' is'} listed in the detailed defect checklist section.`
+        : '';
+
+    return { conclusion, items, note };
+}
+
+function createHighlightBox(docxLib, summary) {
+    return createTable(docxLib, {
+        width: REPORT_LAYOUT.contentWidth,
+        rows: [
+            createRow(docxLib, [
+                createCell(docxLib, [
+                    createBodyParagraph(docxLib, 'Priority Conclusion', { bold: true, spacing: { after: 80 } }),
+                    createBodyParagraph(docxLib, summary.conclusion, { spacing: { after: 120 } }),
+                    createBodyParagraph(docxLib, 'Major / Critical Issues to Note Early:', { bold: true, spacing: { after: 50 } }),
+                    ...summary.items.map(item => createListParagraph(docxLib, item)),
+                    ...(summary.note ? [createBodyParagraph(docxLib, summary.note, { italics: true, spacing: { before: 100 } })] : [])
+                ], {
+                    shading: { fill: REPORT_COLORS.priorityFill },
+                    borders: buildBorders(docxLib.BorderStyle, REPORT_COLORS.priorityBorder),
+                    margins: { top: 140, right: 180, bottom: 140, left: 180 }
+                })
+            ])
+        ],
+        borders: buildBorders(docxLib.BorderStyle, REPORT_COLORS.priorityBorder)
+    });
+}
+
+function createSignatureTable(docxLib, data, borders) {
+    const { AlignmentType, TextRun } = docxLib;
+
+    return createTable(docxLib, {
+        width: REPORT_LAYOUT.contentWidth,
+        borders,
+        columnWidths: [Math.round(REPORT_LAYOUT.contentWidth / 2), Math.round(REPORT_LAYOUT.contentWidth / 2)],
+        rows: [
+            createRow(docxLib, [
+                createCell(docxLib, [
+                    new docxLib.Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        spacing: { before: 600, after: 80 },
+                        children: [new TextRun({ text: '______________________________', size: 20 })]
+                    }),
+                    new docxLib.Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        children: [new TextRun({ text: 'Purchaser / Client', size: 18 })]
+                    }),
+                    new docxLib.Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        children: [new TextRun({ text: data.inspection.client || 'Name: ________________', size: 18, color: REPORT_COLORS.muted })]
+                    }),
+                    new docxLib.Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        children: [new TextRun({ text: 'Date: ________________', size: 18, color: REPORT_COLORS.muted })]
+                    })
+                ], {
+                    borders,
+                    width: Math.round(REPORT_LAYOUT.contentWidth / 2)
+                }),
+                createCell(docxLib, [
+                    new docxLib.Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        spacing: { before: 600, after: 80 },
+                        children: [new TextRun({ text: '______________________________', size: 20 })]
+                    }),
+                    new docxLib.Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        children: [new TextRun({ text: 'Inspector', size: 18 })]
+                    }),
+                    new docxLib.Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        children: [new TextRun({ text: data.inspection.inspector || 'Name: ________________', size: 18, color: REPORT_COLORS.muted })]
+                    }),
+                    new docxLib.Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        children: [new TextRun({ text: 'Date: ________________', size: 18, color: REPORT_COLORS.muted })]
+                    })
+                ], {
+                    borders,
+                    width: Math.round(REPORT_LAYOUT.contentWidth / 2)
+                })
+            ])
+        ]
+    });
+}
+
+function createNumberedSection(docxLib, number, title) {
+    return [
+        new docxLib.Paragraph({
+            spacing: { before: 240, after: 20 },
+            children: [
+                new docxLib.TextRun({
+                    text: number,
+                    bold: true,
+                    size: 24,
+                    color: REPORT_COLORS.primary
+                })
+            ]
+        }),
+        createSectionHeading(docxLib, title, { spacing: { after: 100 } })
+    ];
+}
+
+function createSectionHeading(docxLib, text, options = {}) {
+    return createTextParagraph(docxLib, text, {
+        bold: true,
+        size: 24,
+        color: REPORT_COLORS.primary,
+        allCaps: true,
+        spacing: { before: 40, after: 120, ...(options.spacing || {}) }
+    });
+}
+
+function createSubSectionHeading(docxLib, text) {
+    return createTextParagraph(docxLib, text, {
+        bold: true,
+        size: 22,
+        color: REPORT_COLORS.primary,
+        spacing: { before: 180, after: 80 }
+    });
+}
+
+function createBodyParagraph(docxLib, text, options = {}) {
+    const { bold = false, italics = false, boldPrefix = '', spacing = {}, color, size } = options;
+    if (boldPrefix && text.startsWith(boldPrefix)) {
+        const suffix = text.slice(boldPrefix.length).trimStart();
+        return new docxLib.Paragraph({
+            alignment: docxLib.AlignmentType.BOTH,
+            spacing: { after: 110, ...spacing },
+            children: [
+                new docxLib.TextRun({
+                    text: boldPrefix,
+                    bold: true,
+                    color: color || '222222',
+                    size: size || 21
+                }),
+                new docxLib.TextRun({
+                    text: suffix ? ` ${suffix}` : '',
+                    italics,
+                    color: color || '222222',
+                    size: size || 21
+                })
+            ]
+        });
+    }
+
+    return createMultilineParagraph(docxLib, text, {
+        bold,
+        italics,
+        color: color || '222222',
+        size: size || 21
+    }, {
+        alignment: docxLib.AlignmentType.BOTH,
+        spacing: { after: 110, ...spacing }
+    });
+}
+
+function createListParagraph(docxLib, text) {
+    return createTextParagraph(docxLib, `- ${text}`, {
+        size: 20,
+        spacing: { after: 50 },
+        indent: { left: 360 }
+    });
+}
+
+function createTextParagraph(docxLib, text, options = {}) {
+    const {
+        bold = false,
+        italics = false,
+        size = 21,
+        color = '222222',
+        allCaps = false,
+        alignment,
+        spacing = {},
+        indent
+    } = options;
+
+    return new docxLib.Paragraph({
+        ...(alignment ? { alignment } : {}),
+        ...(indent ? { indent } : {}),
+        spacing,
+        children: [
+            new docxLib.TextRun({
+                text: text || '',
+                bold,
+                italics,
+                size,
+                color,
+                allCaps
+            })
+        ]
+    });
+}
+
+function createMultilineParagraph(docxLib, text, runOptions = {}, paragraphOptions = {}) {
+    const lines = String(text || '')
+        .replace(/\r\n/g, '\n')
+        .split('\n');
+
+    return new docxLib.Paragraph({
+        ...paragraphOptions,
+        children: lines.map((line, index) => new docxLib.TextRun({
+            text: line || ' ',
+            ...(index > 0 ? { break: 1 } : {}),
+            ...runOptions
+        }))
+    });
+}
+
+function createTable(docxLib, options) {
+    const { Table, TableLayoutType, WidthType } = docxLib;
+    const {
+        width,
+        rows,
+        borders,
+        columnWidths,
+        layout = TableLayoutType.FIXED,
+        alignment
+    } = options;
+
+    return new Table({
+        rows,
+        width: { size: width, type: WidthType.DXA },
+        columnWidths,
+        layout,
+        ...(alignment ? { alignment } : {}),
+        borders
+    });
+}
+
+function createRow(docxLib, cells) {
+    return new docxLib.TableRow({ children: cells });
+}
+
+function createCell(docxLib, children, options = {}) {
+    const { TableCell, VerticalAlignTable, WidthType } = docxLib;
+    const { width, borders, margins, shading, columnSpan } = options;
+
+    return new TableCell({
+        children,
+        verticalAlign: VerticalAlignTable.TOP,
+        borders,
+        margins: margins || { top: 100, right: 100, bottom: 100, left: 100 },
+        ...(typeof width === 'number' ? { width: { size: width, type: WidthType.DXA } } : {}),
+        ...(shading ? { shading } : {}),
+        ...(columnSpan ? { columnSpan } : {})
+    });
+}
+
+function createHeaderCell(docxLib, text, width) {
+    return createCell(docxLib, [
+        new docxLib.Paragraph({
+            alignment: docxLib.AlignmentType.CENTER,
+            children: [
+                new docxLib.TextRun({
+                    text,
+                    bold: true,
+                    size: 18,
+                    color: 'FFFFFF',
+                    allCaps: true
+                })
+            ]
+        })
+    ], {
+        width,
+        shading: { fill: REPORT_COLORS.primary },
+        borders: buildBorders(docxLib.BorderStyle, REPORT_COLORS.primary)
+    });
+}
+
+function buildBorders(BorderStyle, color) {
+    return {
+        top: { style: BorderStyle.SINGLE, size: 1, color },
+        bottom: { style: BorderStyle.SINGLE, size: 1, color },
+        left: { style: BorderStyle.SINGLE, size: 1, color },
+        right: { style: BorderStyle.SINGLE, size: 1, color }
+    };
+}
+
+function groupDefectsByArea(defects) {
+    const grouped = new Map();
+    defects.forEach(defect => {
+        const area = defect.area || 'General';
+        if (!grouped.has(area)) grouped.set(area, []);
+        grouped.get(area).push(defect);
+    });
+    return Array.from(grouped.entries());
+}
+
+function getDefectCategories(defect) {
+    if (typeof app?.getStoredDefectCategories === 'function') {
+        const categories = app.getStoredDefectCategories(defect);
+        if (categories.length > 0) return categories;
+    }
+
+    if (typeof normalizeDefectCategoriesInput === 'function') {
+        const categories = normalizeDefectCategoriesInput(defect.categories || defect.category);
+        if (categories.length > 0) return categories;
+    }
+
+    return defect.category ? [defect.category] : ['Others'];
+}
+
+function formatDefectCategories(defect) {
+    return getDefectCategories(defect).join(' + ');
+}
+
+function formatReportDate(value) {
+    const date = value ? new Date(value) : new Date();
+    const safeDate = Number.isNaN(date.getTime()) ? new Date() : date;
+
+    return safeDate.toLocaleDateString('en-MY', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+    });
+}
+
+function sanitizeFilenamePart(value) {
+    return String(value || 'Untitled').replace(/[/\\?%*:|"<>]/g, '-');
+}
+
+function collapseWhitespace(text) {
+    return String(text || '').replace(/\s+/g, ' ').trim();
+}
+
+function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+function dataUrlToImageInfo(dataUrl) {
+    const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(dataUrl || '');
+    if (!match) return null;
+
+    const mimeType = match[1].toLowerCase();
+    const base64 = match[2];
+    const type = mimeType === 'image/jpeg' ? 'jpg' : mimeType.replace('image/', '');
+    if (!['jpg', 'png', 'gif', 'bmp'].includes(type)) return null;
+
+    return { type, bytes: base64ToBytes(base64) };
+}
+
+function getContainedImageSize(dataUrl, maxWidth, maxHeight) {
+    return new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => {
+            const width = img.naturalWidth || maxWidth;
+            const height = img.naturalHeight || maxHeight;
+            const scale = Math.min(maxWidth / width, maxHeight / height, 1);
+
+            resolve({
+                width: Math.max(1, Math.round(width * scale)),
+                height: Math.max(1, Math.round(height * scale))
+            });
+        };
+        img.onerror = () => resolve({ width: maxWidth, height: maxHeight });
+        img.src = dataUrl;
+    });
+}
+
+function base64ToBytes(base64) {
+    if (typeof atob === 'function') {
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes;
+    }
+
+    if (typeof Buffer !== 'undefined') {
+        return Uint8Array.from(Buffer.from(base64, 'base64'));
+    }
+
+    throw new Error('Base64 decoding is not available in this environment.');
 }
