@@ -39,7 +39,9 @@ const DEFECT_DESCRIPTIONS = {
         'Nail / screw pop visible on the wall surface.',
         'Mould / fungal growth observed on the wall surface.',
         'Efflorescence (white salt deposits) visible on the wall.',
-        'Gap between wall and window/door frame observed.'
+        'High moisture content detected via damp meter; visible water marks and active seepage observed.',
+        'Gap between wall and window/door frame observed.',
+        'Missing / uninstalled wall-mounted component (e.g. skirting, cove, corner guard, wall panel) as per S&P/SPA specification.'
     ],
     'Ceilings': [
         'Hairline cracks observed at the ceiling surface.',
@@ -54,7 +56,8 @@ const DEFECT_DESCRIPTIONS = {
         'Poor installation / alignment of ceiling board / panel observed at the affected area.',
         'Poor ceiling finishing workmanship observed at the joint / corner / access panel area.',
         'Hollow sound detected upon tapping test on the ceiling.',
-        'Mould / discoloration observed on the ceiling.'
+        'Mould / discoloration observed on the ceiling.',
+        'Missing / uninstalled ceiling component (e.g. ceiling panel, access panel, cornice, light fitting) as per S&P/SPA specification.'
     ],
     'Tiles': [
         'Hollow tiles detected during tapping test as marked with sticker.',
@@ -69,7 +72,8 @@ const DEFECT_DESCRIPTIONS = {
         'Gap between tile and wall/skirting junction.',
         'Poor tile installation workmanship observed with inconsistent alignment / joint spacing.',
         'Insufficient tile bedding / adhesive coverage suspected from hollowness and poor bonding.',
-        'Poor tile cutting / finishing observed at edge / corner / fitting junction.'
+        'Poor tile cutting / finishing observed at edge / corner / fitting junction.',
+        'Missing / uninstalled tiles at the affected area as per S&P/SPA specification.'
     ],
     'Floor': [
         'Uneven floor surface detected.',
@@ -84,7 +88,8 @@ const DEFECT_DESCRIPTIONS = {
         'Poor floor finishing workmanship observed at the affected area.',
         'Poor patch repair / surface make-good observed on the floor finish.',
         'Poor installation / alignment of skirting / floor finish observed.',
-        'Poor screed / floor fall workmanship suspected from unevenness / drainage issue.'
+        'Poor screed / floor fall workmanship suspected from unevenness / drainage issue.',
+        'Missing / uninstalled floor component (e.g. floor skirting, floor trap cover, threshold strip) as per S&P/SPA specification.'
     ],
     'Plumbing/Sanitary': [
         'Active leakage observed at the pipe joint / connection.',
@@ -104,7 +109,8 @@ const DEFECT_DESCRIPTIONS = {
         'Poor installation workmanship observed to the sanitary fitting / pipe connection.',
         'Poor silicone / sealant workmanship observed around sanitary fitting junction.',
         'Poor workmanship observed to pipe alignment / support / finishing at the affected area.',
-        'Poor installation of basin / WC / tap fitting observed with unsatisfactory finishing.'
+        'Poor installation of basin / WC / tap fitting observed with unsatisfactory finishing.',
+        'Missing / uninstalled sanitary ware or plumbing component (e.g. basin, WC, shower set, tap, towel rail, toilet roll holder, soap dish, mirror) as per S&P/SPA specification.'
     ],
     'Doors': [
         'Door surface exhibits stains, patching marks, and uneven paintwork.',
@@ -120,7 +126,8 @@ const DEFECT_DESCRIPTIONS = {
         'Swollen / warped door panel due to moisture.',
         'Poor installation / alignment of door frame observed.',
         'Poor workmanship observed to door hardware installation / finishing.',
-        'Visible patching / touch-up marks observed on the door / frame surface.'
+        'Visible patching / touch-up marks observed on the door / frame surface.',
+        'Missing / uninstalled door component (e.g. door leaf, door handle, lock set, door stopper, hinges, door closer) as per S&P/SPA specification.'
     ],
     'Windows': [
         'Hairline cracks observed at the window frame area.',
@@ -135,7 +142,8 @@ const DEFECT_DESCRIPTIONS = {
         'Mosquito mesh damaged / not fitted properly.',
         'Poor installation / alignment of window frame observed.',
         'Poor sealant application observed at window perimeter joint.',
-        'Poor workmanship observed to window frame / glazing / beading installation.'
+        'Poor workmanship observed to window frame / glazing / beading installation.',
+        'Missing / uninstalled window component (e.g. window handle, latch, mosquito mesh, glass panel, rubber seal) as per S&P/SPA specification.'
     ],
     'Electrical': [
         'Power socket found to be loose upon inspection.',
@@ -154,7 +162,8 @@ const DEFECT_DESCRIPTIONS = {
         'Poor installation workmanship observed at socket / switch point.',
         'Poor patchwork / finishing observed around the electrical point.',
         'Electrical accessories observed to be misaligned / not installed neatly.',
-        'Poor cable management / containment finishing observed at the affected area.'
+        'Poor cable management / containment finishing observed at the affected area.',
+        'Missing / uninstalled electrical component (e.g. socket, switch, light fitting, DB cover, doorbell, water heater) as per S&P/SPA specification.'
     ],
     'Gate': [
         'Gate not closing / latching properly.',
@@ -167,7 +176,8 @@ const DEFECT_DESCRIPTIONS = {
         'Gate post not properly aligned / leaning.',
         'Poor gate installation / alignment workmanship observed.',
         'Poor welding / joint finishing observed at the gate frame.',
-        'Poor paint / coating workmanship observed on the gate surface.'
+        'Poor paint / coating workmanship observed on the gate surface.',
+        'Missing / uninstalled gate component (e.g. gate leaf, lock, latch, auto-closer, post cap) as per S&P/SPA specification.'
     ],
     'Painting': [
         'Visible roller marks on the painted surface.',
@@ -183,7 +193,8 @@ const DEFECT_DESCRIPTIONS = {
         'Poor patchwork observed below the paint finish.',
         'Poor surface preparation suspected from visible patch marks / uneven finishing.',
         'Poor painting workmanship observed with inconsistent finishing quality.',
-        'Poor workmanship observed at paint line / cut edge / corner finishing.'
+        'Poor workmanship observed at paint line / cut edge / corner finishing.',
+        'Missing / incomplete painting at the affected area as per S&P/SPA specification.'
     ],
     'Water Ponding Test': [
         'Water ponding test conducted - leakage detected at the ceiling below.',
@@ -193,7 +204,8 @@ const DEFECT_DESCRIPTIONS = {
         'Ponding area shows improper gradient / water not draining.',
         'Poor waterproofing workmanship suspected at the tested area.',
         'Poor installation / finishing observed at waterproofing upturn / outlet / joint.',
-        'Poor floor fall / screed workmanship suspected from ponding condition.'
+        'Poor floor fall / screed workmanship suspected from ponding condition.',
+        'Missing / uninstalled waterproofing component (e.g. floor trap, outlet, membrane upturn) at the tested area as per S&P/SPA specification.'
     ],
     'Others': [
         'Defect observed at the affected area (please specify in remarks).',
@@ -204,7 +216,8 @@ const DEFECT_DESCRIPTIONS = {
         'Missing component / fitting at the affected area.',
         'Poor workmanship observed at the affected area.',
         'Poor installation observed at the affected area.',
-        'Poor patching / make-good observed at the affected area.'
+        'Poor patching / make-good observed at the affected area.',
+        'Missing / uninstalled component or fitting at the affected area as per S&P/SPA specification.'
     ]
 };
 

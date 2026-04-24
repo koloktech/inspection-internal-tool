@@ -277,6 +277,65 @@ function buildRemarkSuggestionsForLine(category, descriptionLine) {
         ]);
     }
 
+    if (includesAnyPhrase(text, ['missing / uninstalled', 'missing / incomplete painting'])) {
+        const missingRemarks = {
+            'Wall': [
+                'Developer to ensure all required wall-mounted components (skirting, cove, corner guard, wall panel) are supplied and installed as per agreed S&P/SPA specification.',
+                'Verify installation is complete, properly aligned, and finished neatly before handover.'
+            ],
+            'Ceilings': [
+                'Developer to ensure all required ceiling components (ceiling panel, access panel, cornice, light fitting) are supplied and installed as per agreed S&P/SPA specification.',
+                'Verify installation is secure, properly aligned, and finished neatly before handover.'
+            ],
+            'Tiles': [
+                'Developer to ensure all required tiles are supplied and installed at the affected area as per agreed S&P/SPA specification.',
+                'Ensure tile installation achieves proper adhesion, alignment, grouting, and finish matching the surrounding completed work.'
+            ],
+            'Floor': [
+                'Developer to ensure all required floor components (skirting, floor trap cover, threshold strip) are supplied and installed as per agreed S&P/SPA specification.',
+                'Verify installation is complete, level, and finished neatly before handover.'
+            ],
+            'Plumbing/Sanitary': [
+                'Developer to ensure all required sanitary ware and plumbing components (basin, WC, shower set, tap, towel rail, toilet roll holder, soap dish, mirror) are supplied and installed as per agreed S&P/SPA specification.',
+                'Carry out functional testing (flow, flushing, leakage, drainage) on all newly installed sanitary fittings to confirm satisfactory operation before handover.'
+            ],
+            'Doors': [
+                'Developer to ensure all required door components (door leaf, handle, lock set, door stopper, hinges, door closer) are supplied and installed as per agreed S&P/SPA specification.',
+                'Verify the installed door operates smoothly with proper closing, latching, locking, and uniform gaps before handover.'
+            ],
+            'Windows': [
+                'Developer to ensure all required window components (handle, latch, mosquito mesh, glass panel, rubber seal) are supplied and installed as per agreed S&P/SPA specification.',
+                'Verify the installed window operates smoothly with proper closing, locking, and weather tightness before handover.'
+            ],
+            'Electrical': [
+                'Developer to ensure all required electrical components (socket, switch, light fitting, DB cover, doorbell, water heater) are supplied and installed as per agreed S&P/SPA specification.',
+                'Electrical installation shall be carried out by a competent wireman, with applicable testing (continuity, insulation resistance, polarity, earthing) completed before handover.'
+            ],
+            'Gate': [
+                'Developer to ensure all required gate components (gate leaf, lock, latch, auto-closer, post cap) are supplied and installed as per agreed S&P/SPA specification.',
+                'Verify the installed gate operates smoothly with proper closing, latching, and uniform gaps before handover.'
+            ],
+            'Painting': [
+                'Developer to ensure all required painting works are completed at the affected area as per agreed S&P/SPA specification.',
+                'Final paintwork shall achieve uniform colour and finish, free from roller marks, brush marks, patchiness, and visible touch-up lines.'
+            ],
+            'Water Ponding Test': [
+                'Developer to ensure all required waterproofing components (floor trap, outlet, membrane upturn) are supplied and installed at the tested area as per agreed S&P/SPA specification.',
+                'Repeat the ponding test after installation to confirm no leakage or abnormal water loss before handover.'
+            ],
+            'Others': [
+                'Developer to ensure all required materials / components / fittings are supplied and installed as per agreed S&P/SPA specification.',
+                'Carry out reinspection after installation to verify completeness, workmanship, and functionality are acceptable before handover.'
+            ]
+        };
+
+        if (category && missingRemarks[category]) {
+            pushUniqueSuggestions(suggestions, missingRemarks[category]);
+        } else {
+            pushUniqueSuggestions(suggestions, missingRemarks['Others']);
+        }
+    }
+
     if (suggestions.length === 0) {
         pushUniqueSuggestions(suggestions, GENERIC_REMARK_FALLBACK);
     }
