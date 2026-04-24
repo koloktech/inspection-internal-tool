@@ -373,6 +373,10 @@ async function createCoverImageParagraph(docxLib) {
 }
 
 async function loadReportCoverImage() {
+    if (typeof REPORT_COVER_IMAGE_BASE64 === 'string' && REPORT_COVER_IMAGE_BASE64) {
+        return base64ToBytes(REPORT_COVER_IMAGE_BASE64);
+    }
+
     try {
         const response = await fetch('./background.jpg');
         if (!response.ok) return null;

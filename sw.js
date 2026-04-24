@@ -1,4 +1,4 @@
-const CACHE_NAME = 'prospec-inspection-v5';
+const CACHE_NAME = 'prospec-inspection-v6';
 const APP_SHELL_FILES = [
     './',
     './index.html',
@@ -12,6 +12,7 @@ const APP_SHELL_FILES = [
     './js/descriptions.js',
     './js/excel.js',
     './js/export.js',
+    './js/report-cover.js',
     './js/references.js',
     './js/remarks.js',
     './assets/icons/icon-192.png',
