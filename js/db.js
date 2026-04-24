@@ -6,9 +6,17 @@ const DB = {
     DB_NAME: 'MeemInspectionDB',
     DB_VERSION: 2,
     db: null,
+    initPromise: null,
 
     async init() {
-        return new Promise((resolve, reject) => {
+        if (this.db) return this.db;
+        if (this.initPromise) return this.initPromise;
+
+        if (!window.indexedDB) {
+            throw new Error('Local browser database is not available.');
+        }
+
+        this.initPromise = new Promise((resolve, reject) => {
             const request = indexedDB.open(this.DB_NAME, this.DB_VERSION);
 
             request.onupgradeneeded = (e) => {
@@ -32,15 +40,38 @@ const DB = {
 
             request.onsuccess = (e) => {
                 this.db = e.target.result;
-                resolve();
+                this.db.onversionchange = () => {
+                    this.db.close();
+                    this.db = null;
+                    this.initPromise = null;
+                };
+                resolve(this.db);
             };
 
-            request.onerror = (e) => reject(e.target.error);
+            request.onerror = (e) => {
+                this.initPromise = null;
+                reject(e.target.error);
+            };
+
+            request.onblocked = () => {
+                this.initPromise = null;
+                reject(new Error('Local database update is blocked. Close other app tabs and reopen.'));
+            };
         });
+
+        return this.initPromise;
+    },
+
+    async ensureReady() {
+        if (!this.db) {
+            await this.init();
+        }
+        return this.db;
     },
 
     // --- Inspections ---
     async saveInspection(inspection) {
+        await this.ensureReady();
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction('inspections', 'readwrite');
             const store = tx.objectStore('inspections');
@@ -51,6 +82,7 @@ const DB = {
     },
 
     async getInspection(id) {
+        await this.ensureReady();
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction('inspections', 'readonly');
             const store = tx.objectStore('inspections');
@@ -61,6 +93,7 @@ const DB = {
     },
 
     async getAllInspections() {
+        await this.ensureReady();
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction('inspections', 'readonly');
             const store = tx.objectStore('inspections');
@@ -71,6 +104,7 @@ const DB = {
     },
 
     async deleteInspection(id) {
+        await this.ensureReady();
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction('inspections', 'readwrite');
             const store = tx.objectStore('inspections');
@@ -82,6 +116,7 @@ const DB = {
 
     // --- Defects ---
     async saveDefect(defect) {
+        await this.ensureReady();
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction('defects', 'readwrite');
             const store = tx.objectStore('defects');
@@ -92,6 +127,7 @@ const DB = {
     },
 
     async getDefect(id) {
+        await this.ensureReady();
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction('defects', 'readonly');
             const store = tx.objectStore('defects');
@@ -102,6 +138,7 @@ const DB = {
     },
 
     async getDefectsByInspection(inspectionId) {
+        await this.ensureReady();
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction('defects', 'readonly');
             const store = tx.objectStore('defects');
@@ -113,6 +150,7 @@ const DB = {
     },
 
     async deleteDefect(id) {
+        await this.ensureReady();
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction('defects', 'readwrite');
             const store = tx.objectStore('defects');
@@ -124,6 +162,7 @@ const DB = {
 
     async deleteDefectsByInspection(inspectionId) {
         const defects = await this.getDefectsByInspection(inspectionId);
+        await this.ensureReady();
         const tx = this.db.transaction('defects', 'readwrite');
         const store = tx.objectStore('defects');
         for (const defect of defects) {
@@ -137,6 +176,7 @@ const DB = {
 
     // --- Drafts ---
     async saveDraft(id, data) {
+        await this.ensureReady();
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction('drafts', 'readwrite');
             const store = tx.objectStore('drafts');
@@ -147,6 +187,7 @@ const DB = {
     },
 
     async getDraft(id) {
+        await this.ensureReady();
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction('drafts', 'readonly');
             const store = tx.objectStore('drafts');
@@ -157,6 +198,7 @@ const DB = {
     },
 
     async deleteDraft(id) {
+        await this.ensureReady();
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction('drafts', 'readwrite');
             const store = tx.objectStore('drafts');

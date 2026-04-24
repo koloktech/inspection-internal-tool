@@ -21,13 +21,20 @@ const app = {
 
     // --- Init ---
     async init() {
-        await DB.init();
         this.renderCategoryOptions();
-        await this.loadAllProjects();
         this.bindFormProgressListeners();
         this.bindKeyboardShortcuts();
         this.bindAutosaveListeners();
         this.restoreInspectionDraft();
+
+        try {
+            await DB.init();
+            await this.loadAllProjects();
+        } catch (error) {
+            console.error('Local database initialization failed:', error);
+            this.showToast(this.getStorageErrorMessage(error), 'error');
+        }
+
         await this.updateStorageEstimate();
     },
 
@@ -685,6 +692,63 @@ const app = {
         document.getElementById('inspectionMeta').textContent = `Inspector: ${inspector || '—'}`;
         await this.renderAreaList();
         this.nav('areaListScreen');
+    },
+
+    async startInspectionSafe() {
+        const project = document.getElementById('project').value.trim();
+        const unit = document.getElementById('unit').value.trim();
+        const inspector = document.getElementById('inspector').value.trim();
+        const client = document.getElementById('client').value.trim();
+        const developer = document.getElementById('developer').value.trim();
+        const address = document.getElementById('address').value.trim();
+
+        if (!project || !unit) {
+            this.showToast('Please enter Project and Unit', 'error');
+            return;
+        }
+
+        const btn = document.getElementById('startInspectionBtn');
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Starting...';
+        }
+
+        try {
+            const inspection = {
+                project, unit, inspector, client, developer, address,
+                areas: [...this.DEFAULT_AREAS],
+                createdAt: new Date().toISOString()
+            };
+
+            const id = await DB.saveInspection(inspection);
+            inspection.id = id;
+            this.updateStorageEstimate();
+            this.currentInspection = inspection;
+            this.allInspections = [inspection, ...this.allInspections.filter(item => item.id !== inspection.id)];
+            this.refreshProjectNameSuggestions();
+
+            document.getElementById('project').value = '';
+            document.getElementById('unit').value = '';
+            document.getElementById('inspector').value = '';
+            document.getElementById('client').value = '';
+            document.getElementById('developer').value = '';
+            document.getElementById('address').value = '';
+            this.clearInspectionDraft();
+            this.updateProjectSuggestionHint();
+
+            document.getElementById('inspectionTitle').textContent = `${project} | ${unit}`;
+            document.getElementById('inspectionMeta').textContent = `Inspector: ${inspector || 'N/A'}`;
+            await this.renderAreaList();
+            this.nav('areaListScreen');
+        } catch (error) {
+            console.error('Start inspection failed:', error);
+            this.showToast(this.getStorageErrorMessage(error), 'error');
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Start Inspection';
+            }
+        }
     },
 
     confirmEndInspection() {
@@ -1507,6 +1571,22 @@ const app = {
 
         const decimals = value >= 10 || unitIndex === 0 ? 0 : 1;
         return `${value.toFixed(decimals)} ${units[unitIndex]}`;
+    },
+
+    getStorageErrorMessage(error) {
+        const message = String(error?.message || error || '').toLowerCase();
+
+        if (message.includes('blocked')) {
+            return 'Storage update is blocked. Close other app tabs and reopen.';
+        }
+        if (message.includes('quota') || message.includes('storage') || message.includes('full')) {
+            return 'Phone storage is full or unavailable. Export/delete old data, then try again.';
+        }
+        if (message.includes('database') || message.includes('indexeddb')) {
+            return 'Local database is unavailable. Reopen the app and try again.';
+        }
+
+        return 'Could not save inspection. Reopen the app and try again.';
     }
 };
 
