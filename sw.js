@@ -1,9 +1,10 @@
-const CACHE_NAME = 'prospec-inspection-v4';
+const CACHE_NAME = 'prospec-inspection-v5';
 const APP_SHELL_FILES = [
     './',
     './index.html',
     './manifest.webmanifest',
     './css/styles.css',
+    './background.jpg',
     './js/vendor/docx.iife.js',
     './js/vendor/xlsx.full.min.js',
     './js/app.js',
