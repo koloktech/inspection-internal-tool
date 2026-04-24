@@ -207,6 +207,24 @@ function buildRemarkSuggestionsForLine(category, descriptionLine) {
         ]);
     }
 
+    if (includesAnyPhrase(text, ['termite', 'frass', 'fecal pellets', 'mud tubes', 'termite galleries', 'termite tunnels', 'wood consumption', 'timber sub-structure', 'termite attack', 'termite damage', 'termite infestation', 'honeycombed appearance'])) {
+        pushUniqueSuggestions(suggestions, [
+            'Developer to engage a licensed pest control specialist (MAPHMA / DOA-registered) to carry out immediate inspection, identification of termite species, and treatment of the affected area using an approved termiticide regime (soil / baiting / foaming as appropriate).',
+            'Remove and replace all termite-damaged timber components (door leaf, door frame, skirting, wall lining, architraves) with properly treated / pressure-impregnated timber or approved termite-resistant substitute, and make good all affected finishes to match adjacent completed work.',
+            'Developer to provide chemical soil treatment / anti-termite barrier to the affected area in accordance with the anti-termite warranty specified under the S&P/SPA, and furnish updated treatment certification and warranty to the purchaser.',
+            'Carry out follow-up inspection after treatment to confirm no recurrence of active termite activity before final handover.'
+        ]);
+    }
+
+    if (includesAnyPhrase(text, ['rainwater downpipe', 'rain drain water pipe', 'rain drain pipe', 'downpipe not connected', 'discharge roof', 'uncontrolled runoff', 'uncontrolled water discharge', 'ponding around the slab'])) {
+        pushUniqueSuggestions(suggestions, [
+            'Developer to supply and install the missing rainwater downpipe, complete with proper fixing brackets, connections to the roof gutter / rainwater outlet, and discharge into the designated surface drain / drainage outlet in accordance with the approved drainage layout and UBBL / MS 1228 requirements.',
+            'Rectification must prevent roof / gutter runoff from splashing onto external walls or ponding at the slab edge, to avoid wall dampness, efflorescence, paint peeling, slab edge erosion, and long-term structural deterioration.',
+            'Carry out a water discharge / flow test after installation to confirm rainwater is properly channelled from the roof gutter to the drainage outlet with no leakage, overflow, or ponding at the building perimeter.',
+            'Make good all affected external wall finishes (paint, render, coating) only after the downpipe installation has been completed and tested satisfactorily.'
+        ]);
+    }
+
     if (includesAnyPhrase(text, ['swollen / warped door panel due to moisture'])) {
         pushUniqueSuggestions(suggestions, [
             'Identify and rectify the moisture source, then repair or replace the swollen / warped door panel if acceptable operation and finish cannot be restored.',

@@ -41,6 +41,8 @@ const DEFECT_DESCRIPTIONS = {
         'Efflorescence (white salt deposits) visible on the wall.',
         'High moisture content detected via damp meter; visible water marks and active seepage observed.',
         'Gap between wall and window/door frame observed.',
+        'Mud tubes / termite tunnels observed running along the wall-skirting junction, indicating active subterranean termite activity.',
+        'Timber skirting / wall lining showing signs of termite damage (hollow, chewed, or honeycombed appearance) with visible frass deposits.',
         'Missing / uninstalled wall-mounted component (e.g. skirting, cove, corner guard, wall panel) as per S&P/SPA specification.'
     ],
     'Ceilings': [
@@ -57,6 +59,7 @@ const DEFECT_DESCRIPTIONS = {
         'Poor ceiling finishing workmanship observed at the joint / corner / access panel area.',
         'Hollow sound detected upon tapping test on the ceiling.',
         'Mould / discoloration observed on the ceiling.',
+        'High moisture content detected via damp meter; visible water marks and active seepage observed.',
         'Missing / uninstalled ceiling component (e.g. ceiling panel, access panel, cornice, light fitting) as per S&P/SPA specification.'
     ],
     'Tiles': [
@@ -110,6 +113,8 @@ const DEFECT_DESCRIPTIONS = {
         'Poor silicone / sealant workmanship observed around sanitary fitting junction.',
         'Poor workmanship observed to pipe alignment / support / finishing at the affected area.',
         'Poor installation of basin / WC / tap fitting observed with unsatisfactory finishing.',
+        'Missing / uninstalled rainwater downpipe (rain drain water pipe) to discharge roof / gutter water away from the building — uncontrolled runoff at the roof edge is causing water to splash and pool around the external wall, risking wall dampness, paint peeling, efflorescence, and long-term structural deterioration.',
+        'Rainwater downpipe present but not connected to the proper drainage outlet / surface drain, resulting in uncontrolled water discharge at the building perimeter and ponding around the slab edge.',
         'Missing / uninstalled sanitary ware or plumbing component (e.g. basin, WC, shower set, tap, towel rail, toilet roll holder, soap dish, mirror) as per S&P/SPA specification.'
     ],
     'Doors': [
@@ -127,6 +132,11 @@ const DEFECT_DESCRIPTIONS = {
         'Poor installation / alignment of door frame observed.',
         'Poor workmanship observed to door hardware installation / finishing.',
         'Visible patching / touch-up marks observed on the door / frame surface.',
+        'Evidence of active subterranean termite infestation observed at the door frame base.',
+        'Presence of frass (termite droppings) and fecal pellets indicates significant nesting or wood consumption within the timber sub-structure.',
+        'Mud tubes / termite galleries observed along the door frame and wall-skirting junction, indicating active termite activity.',
+        'Hollow sound detected upon tapping on the timber door leaf / frame, suspected internal termite damage.',
+        'Timber door leaf / frame showing boring holes, surface blistering, and wood degradation consistent with termite attack.',
         'Missing / uninstalled door component (e.g. door leaf, door handle, lock set, door stopper, hinges, door closer) as per S&P/SPA specification.'
     ],
     'Windows': [

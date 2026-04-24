@@ -22,6 +22,35 @@ const app = {
         await DB.init();
         this.renderCategoryOptions();
         await this.loadAllProjects();
+        this.bindFormProgressListeners();
+        this.bindKeyboardShortcuts();
+    },
+
+    bindFormProgressListeners() {
+        document.querySelectorAll('input[name="severity"]').forEach(radio => {
+            radio.addEventListener('change', () => this.updateFormProgress());
+        });
+    },
+
+    bindKeyboardShortcuts() {
+        document.addEventListener('keydown', (e) => {
+            const formScreenActive = document.getElementById('defectFormScreen').classList.contains('active');
+            if (!formScreenActive) return;
+
+            const target = e.target;
+            const isTyping = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT');
+
+            if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+                e.preventDefault();
+                this.saveDefect();
+                return;
+            }
+
+            if (e.key === 'Escape' && !isTyping) {
+                e.preventDefault();
+                this.nav('defectListScreen');
+            }
+        });
     },
 
     // --- Navigation ---
@@ -78,12 +107,38 @@ const app = {
         const container = document.getElementById('categorySelection');
         if (!container) return;
 
-        container.innerHTML = DEFECT_CATEGORIES.map(category => `
+        const usage = this.getCategoryUsageCounts();
+        const ordered = [...DEFECT_CATEGORIES].sort((a, b) => {
+            const diff = (usage[b] || 0) - (usage[a] || 0);
+            if (diff !== 0) return diff;
+            return DEFECT_CATEGORIES.indexOf(a) - DEFECT_CATEGORIES.indexOf(b);
+        });
+
+        container.innerHTML = ordered.map(category => `
             <label class="category-chip">
                 <input type="checkbox" value="${this.escapeHtml(category)}" onchange="app.onCategoryChange()">
                 <span>${this.escapeHtml(category)}</span>
             </label>
         `).join('');
+    },
+
+    getCategoryUsageCounts() {
+        try {
+            const raw = localStorage.getItem('prospec_category_usage');
+            return raw ? JSON.parse(raw) : {};
+        } catch (e) {
+            return {};
+        }
+    },
+
+    bumpCategoryUsage(categoriesOrString) {
+        const categories = normalizeDefectCategoriesInput(categoriesOrString);
+        if (categories.length === 0) return;
+        const counts = this.getCategoryUsageCounts();
+        categories.forEach(cat => { counts[cat] = (counts[cat] || 0) + 1; });
+        try {
+            localStorage.setItem('prospec_category_usage', JSON.stringify(counts));
+        } catch (e) { /* ignore */ }
     },
 
     getSelectedCategories() {
@@ -478,14 +533,43 @@ const app = {
     // ============================================
     // DEFECT LIST
     // ============================================
+    currentDefectFilter: 'all',
+    currentAreaDefects: [],
+
     async openDefectList(area) {
         this.currentArea = area;
         document.getElementById('defectListTitle').textContent = area;
 
         const defects = await DB.getDefectsByInspection(this.currentInspection.id);
-        const areaDefects = defects.filter(d => d.area === area);
+        this.currentAreaDefects = defects.filter(d => d.area === area);
+        this.currentDefectFilter = 'all';
 
-        document.getElementById('defectListCount').textContent = `${areaDefects.length} defect${areaDefects.length !== 1 ? 's' : ''}`;
+        document.querySelectorAll('#defectFilters .defect-filter-chip').forEach(chip => {
+            chip.classList.toggle('active', chip.getAttribute('data-filter') === 'all');
+        });
+
+        this.renderDefectList();
+        this.nav('defectListScreen');
+    },
+
+    renderDefectList() {
+        const areaDefects = this.currentAreaDefects || [];
+        const filter = this.currentDefectFilter || 'all';
+        const visible = filter === 'all'
+            ? areaDefects
+            : areaDefects.filter(d => d.severity === filter || d.status === filter);
+
+        const countEl = document.getElementById('defectListCount');
+        if (filter === 'all') {
+            countEl.textContent = `${areaDefects.length} defect${areaDefects.length !== 1 ? 's' : ''}`;
+        } else {
+            countEl.textContent = `${visible.length} of ${areaDefects.length} shown (${filter})`;
+        }
+
+        const filtersEl = document.getElementById('defectFilters');
+        if (filtersEl) {
+            filtersEl.style.display = areaDefects.length > 0 ? 'flex' : 'none';
+        }
 
         const container = document.getElementById('defectListContainer');
         const emptyState = document.getElementById('emptyDefectState');
@@ -494,34 +578,47 @@ const app = {
             container.innerHTML = '';
             container.style.display = 'none';
             emptyState.style.display = 'block';
-        } else {
-            emptyState.style.display = 'none';
-            container.style.display = 'block';
-            container.innerHTML = areaDefects.map(d => {
-                const severityClass = `tag-${d.severity.toLowerCase()}`;
-                const statusClass = d.status === 'In Progress' ? 'tag-progress' :
-                                    d.status === 'Resolved' ? 'tag-resolved' : 'tag-open';
-                const thumb = d.photos && d.photos.length > 0
-                    ? `<img src="${d.photos[0]}" alt="">`
-                    : '&#128247;';
-
-                return `
-                    <div class="defect-item" onclick="app.editDefect(${d.id})">
-                        <div class="defect-item-thumb">${thumb}</div>
-                        <div class="defect-item-info">
-                            <div class="defect-category">
-                                ${this.escapeHtml(d.category)}
-                                <span class="tag ${severityClass}">${d.severity}</span>
-                                <span class="tag ${statusClass}">${d.status}</span>
-                            </div>
-                            <div class="defect-desc">${this.escapeHtml(d.description || 'No description')}</div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
+            return;
         }
 
-        this.nav('defectListScreen');
+        emptyState.style.display = 'none';
+        container.style.display = 'block';
+
+        if (visible.length === 0) {
+            container.innerHTML = `<div class="empty-state"><p>No defects match this filter.</p></div>`;
+            return;
+        }
+
+        container.innerHTML = visible.map(d => {
+            const severityClass = `tag-${d.severity.toLowerCase()}`;
+            const statusClass = d.status === 'In Progress' ? 'tag-progress' :
+                                d.status === 'Resolved' ? 'tag-resolved' : 'tag-open';
+            const thumb = d.photos && d.photos.length > 0
+                ? `<img src="${d.photos[0]}" alt="">`
+                : '&#128247;';
+
+            return `
+                <div class="defect-item" onclick="app.editDefect(${d.id})">
+                    <div class="defect-item-thumb">${thumb}</div>
+                    <div class="defect-item-info">
+                        <div class="defect-category">
+                            ${this.escapeHtml(d.category)}
+                            <span class="tag ${severityClass}">${d.severity}</span>
+                            <span class="tag ${statusClass}">${d.status}</span>
+                        </div>
+                        <div class="defect-desc">${this.escapeHtml(d.description || 'No description')}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    },
+
+    setDefectFilter(filter) {
+        this.currentDefectFilter = filter;
+        document.querySelectorAll('#defectFilters .defect-filter-chip').forEach(chip => {
+            chip.classList.toggle('active', chip.getAttribute('data-filter') === filter);
+        });
+        this.renderDefectList();
     },
 
     // ============================================
@@ -542,12 +639,16 @@ const app = {
         document.getElementById('saveBtn').textContent = 'Save Defect';
         document.getElementById('descSuggestionWrap').style.display = 'none';
         document.getElementById('descSuggestion').value = '';
+        this.clearDescSearch();
         document.getElementById('remarksSuggestionWrap').style.display = 'none';
         document.getElementById('remarksSuggestion').value = '';
+        this.clearRemarkSearch();
         document.getElementById('photoPasteZone').blur();
 
         this.onCategoryChange();
         this.renderPhotoPreview();
+        this.updatePhotoCollapsedState();
+        this.updateFormProgress();
         this.nav('defectFormScreen');
     },
 
@@ -575,6 +676,8 @@ const app = {
         this.onCategoryChange();
 
         this.renderPhotoPreview();
+        this.updatePhotoCollapsedState();
+        this.updateFormProgress();
         this.nav('defectFormScreen');
     },
 
@@ -615,6 +718,7 @@ const app = {
         }
 
         await DB.saveDefect(defect);
+        this.bumpCategoryUsage(categories);
 
         btn.textContent = this.editingDefectId ? 'Update Defect' : 'Save Defect';
         btn.disabled = false;
@@ -717,6 +821,8 @@ const app = {
         const container = document.getElementById('photoPreviewContainer');
         if (this.currentPhotos.length === 0) {
             container.innerHTML = '';
+            this.updatePhotoCollapsedState();
+            this.updateFormProgress();
             return;
         }
 
@@ -726,6 +832,9 @@ const app = {
                 <button class="remove-photo" onclick="event.stopPropagation(); app.removePhoto(${i})">&#10005;</button>
             </div>
         `).join('');
+
+        this.updatePhotoCollapsedState();
+        this.updateFormProgress();
     },
 
     // ============================================
@@ -799,6 +908,13 @@ const app = {
 
         this.renderCategoryReferenceGuides(categories);
         this.refreshRemarksSuggestions();
+        this.clearDescSearch();
+        this.clearRemarkSearch();
+        this.updateFormProgress();
+
+        if (categories.length > 0 && !this.editingDefectId) {
+            setTimeout(() => this.scrollToDescription(), 100);
+        }
     },
 
     applyDescSuggestion() {
@@ -822,6 +938,249 @@ const app = {
         select.value = '';
         descriptionEl.focus();
         this.refreshRemarksSuggestions();
+    },
+
+    searchDescSuggestions() {
+        const input = document.getElementById('descSearch');
+        const resultsEl = document.getElementById('descSearchResults');
+        const clearBtn = document.getElementById('descSearchClear');
+        const query = (input.value || '').trim();
+
+        clearBtn.style.display = query ? 'flex' : 'none';
+
+        if (!query) {
+            resultsEl.style.display = 'none';
+            resultsEl.innerHTML = '';
+            return;
+        }
+
+        const categories = this.getSelectedCategories();
+        const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
+        if (tokens.length === 0) {
+            resultsEl.style.display = 'none';
+            resultsEl.innerHTML = '';
+            return;
+        }
+
+        const pool = [];
+        const seen = new Set();
+        const addFromCategory = (cat) => {
+            (DEFECT_DESCRIPTIONS[cat] || []).forEach(desc => {
+                if (!seen.has(desc)) {
+                    seen.add(desc);
+                    pool.push({ category: cat, description: desc });
+                }
+            });
+        };
+        if (categories.length > 0) {
+            categories.forEach(addFromCategory);
+        } else {
+            Object.keys(DEFECT_DESCRIPTIONS).forEach(addFromCategory);
+        }
+
+        const scored = pool.map(item => {
+            const lower = item.description.toLowerCase();
+            let score = 0;
+            let allMatch = true;
+            tokens.forEach(tok => {
+                const idx = lower.indexOf(tok);
+                if (idx === -1) {
+                    allMatch = false;
+                } else {
+                    score += 10;
+                    if (idx === 0 || /\W/.test(lower.charAt(idx - 1))) score += 3;
+                    score += Math.max(0, 5 - Math.floor(idx / 10));
+                }
+            });
+            return { ...item, score, allMatch };
+        }).filter(item => item.allMatch)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 10);
+
+        if (scored.length === 0) {
+            resultsEl.innerHTML = '<div class="desc-search-empty">No matching descriptions. Try different keywords.</div>';
+            resultsEl.style.display = 'block';
+            return;
+        }
+
+        const showCategory = categories.length !== 1;
+        resultsEl.innerHTML = scored.map(item => {
+            const highlighted = this.highlightTokens(item.description, tokens);
+            const catLabel = showCategory ? `<span class="desc-search-result-category">${this.escapeHtml(item.category)}</span>` : '';
+            return `<div class="desc-search-result" data-desc="${this.escapeHtml(item.description)}" onclick="app.applyDescSearchResult(this)">${catLabel}${highlighted}</div>`;
+        }).join('');
+        resultsEl.style.display = 'block';
+    },
+
+    highlightTokens(text, tokens) {
+        const escaped = this.escapeHtml(text);
+        const uniqueTokens = [...new Set(tokens)].filter(Boolean);
+        if (uniqueTokens.length === 0) return escaped;
+        const pattern = uniqueTokens
+            .map(tok => tok.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+            .sort((a, b) => b.length - a.length)
+            .join('|');
+        const regex = new RegExp(`(${pattern})`, 'gi');
+        return escaped.replace(regex, '<mark>$1</mark>');
+    },
+
+    applyDescSearchResult(el) {
+        const selected = el.getAttribute('data-desc');
+        if (!selected) return;
+        const descriptionEl = document.getElementById('description');
+        const existingLines = descriptionEl.value
+            .split('\n')
+            .map(line => line.trim())
+            .filter(Boolean);
+
+        if (!existingLines.includes(selected)) {
+            existingLines.push(selected);
+            descriptionEl.value = existingLines.join('\n');
+        } else {
+            this.showToast('That common defect is already added', 'info');
+        }
+
+        this.clearDescSearch();
+        descriptionEl.focus();
+        this.refreshRemarksSuggestions();
+    },
+
+    clearDescSearch() {
+        const input = document.getElementById('descSearch');
+        const resultsEl = document.getElementById('descSearchResults');
+        const clearBtn = document.getElementById('descSearchClear');
+        if (input) input.value = '';
+        if (resultsEl) {
+            resultsEl.innerHTML = '';
+            resultsEl.style.display = 'none';
+        }
+        if (clearBtn) clearBtn.style.display = 'none';
+    },
+
+    searchRemarkSuggestions() {
+        const input = document.getElementById('remarksSearch');
+        const resultsEl = document.getElementById('remarksSearchResults');
+        const clearBtn = document.getElementById('remarksSearchClear');
+        const query = (input.value || '').trim();
+
+        clearBtn.style.display = query ? 'flex' : 'none';
+
+        if (!query) {
+            resultsEl.style.display = 'none';
+            resultsEl.innerHTML = '';
+            return;
+        }
+
+        const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
+        if (tokens.length === 0) {
+            resultsEl.style.display = 'none';
+            resultsEl.innerHTML = '';
+            return;
+        }
+
+        const categories = this.getSelectedCategories();
+        const description = document.getElementById('description').value;
+        const pool = getRectificationRemarkSuggestions(categories, description);
+
+        const scored = pool.map(text => {
+            const lower = text.toLowerCase();
+            let score = 0;
+            let allMatch = true;
+            tokens.forEach(tok => {
+                const idx = lower.indexOf(tok);
+                if (idx === -1) {
+                    allMatch = false;
+                } else {
+                    score += 10;
+                    if (idx === 0 || /\W/.test(lower.charAt(idx - 1))) score += 3;
+                    score += Math.max(0, 5 - Math.floor(idx / 10));
+                }
+            });
+            return { text, score, allMatch };
+        }).filter(item => item.allMatch)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 10);
+
+        if (scored.length === 0) {
+            resultsEl.innerHTML = '<div class="desc-search-empty">No matching remarks. Try different keywords.</div>';
+            resultsEl.style.display = 'block';
+            return;
+        }
+
+        resultsEl.innerHTML = scored.map(item => {
+            const highlighted = this.highlightTokens(item.text, tokens);
+            return `<div class="desc-search-result" data-desc="${this.escapeHtml(item.text)}" onclick="app.applyRemarkSearchResult(this)">${highlighted}</div>`;
+        }).join('');
+        resultsEl.style.display = 'block';
+    },
+
+    applyRemarkSearchResult(el) {
+        const selected = el.getAttribute('data-desc');
+        if (!selected) return;
+        const remarksEl = document.getElementById('remarks');
+        const existingLines = remarksEl.value
+            .split('\n')
+            .map(line => line.trim())
+            .filter(Boolean);
+
+        if (!existingLines.includes(selected)) {
+            existingLines.push(selected);
+            remarksEl.value = existingLines.join('\n');
+        } else {
+            this.showToast('That remark is already added', 'info');
+        }
+
+        this.clearRemarkSearch();
+        remarksEl.focus();
+    },
+
+    clearRemarkSearch() {
+        const input = document.getElementById('remarksSearch');
+        const resultsEl = document.getElementById('remarksSearchResults');
+        const clearBtn = document.getElementById('remarksSearchClear');
+        if (input) input.value = '';
+        if (resultsEl) {
+            resultsEl.innerHTML = '';
+            resultsEl.style.display = 'none';
+        }
+        if (clearBtn) clearBtn.style.display = 'none';
+    },
+
+    updateFormProgress() {
+        const progressEl = document.getElementById('formProgress');
+        if (!progressEl) return;
+        const checks = {
+            photos: (this.currentPhotos || []).length > 0,
+            category: this.getSelectedCategories().length > 0,
+            severity: !!document.querySelector('input[name="severity"]:checked'),
+            description: (document.getElementById('description').value || '').trim().length > 0
+        };
+        progressEl.querySelectorAll('.form-progress-item').forEach(item => {
+            const key = item.getAttribute('data-progress');
+            item.classList.toggle('done', !!checks[key]);
+        });
+    },
+
+    updatePhotoCollapsedState() {
+        const wrap = document.getElementById('photoActionsWrap');
+        if (!wrap) return;
+        if ((this.currentPhotos || []).length > 0) {
+            wrap.classList.add('collapsed');
+        } else {
+            wrap.classList.remove('collapsed');
+        }
+    },
+
+    expandPhotoActions() {
+        const wrap = document.getElementById('photoActionsWrap');
+        if (wrap) wrap.classList.remove('collapsed');
+    },
+
+    scrollToDescription() {
+        const descField = document.getElementById('description');
+        if (!descField) return;
+        const descGroup = descField.closest('.form-group') || descField;
+        descGroup.scrollIntoView({ behavior: 'smooth', block: 'start' });
     },
 
     refreshRemarksSuggestions() {

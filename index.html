@@ -136,6 +136,15 @@
             <button class="btn btn-primary btn-sm" onclick="app.openDefectForm()">+ New</button>
         </header>
 
+        <div id="defectFilters" class="defect-filters" style="display:none;">
+            <button type="button" class="defect-filter-chip active" data-filter="all" onclick="app.setDefectFilter('all')">All</button>
+            <button type="button" class="defect-filter-chip" data-filter="Critical" onclick="app.setDefectFilter('Critical')">Critical</button>
+            <button type="button" class="defect-filter-chip" data-filter="Major" onclick="app.setDefectFilter('Major')">Major</button>
+            <button type="button" class="defect-filter-chip" data-filter="Minor" onclick="app.setDefectFilter('Minor')">Minor</button>
+            <button type="button" class="defect-filter-chip" data-filter="Open" onclick="app.setDefectFilter('Open')">Open</button>
+            <button type="button" class="defect-filter-chip" data-filter="Resolved" onclick="app.setDefectFilter('Resolved')">Resolved</button>
+        </div>
+
         <div id="defectListContainer"></div>
 
         <div id="emptyDefectState" class="empty-state">
@@ -155,88 +164,132 @@
         </header>
 
         <div class="card">
-            <!-- Photo Section -->
-            <div class="form-group">
-                <label>Photos</label>
-                <div class="photo-actions">
-                    <input type="file" id="cameraInput" accept="image/*" capture="environment" onchange="app.handlePhoto(event)" style="display:none;">
-                    <input type="file" id="uploadInput" accept="image/*" multiple onchange="app.handlePhotoUpload(event)" style="display:none;">
-                    <button class="btn btn-secondary btn-half" onclick="document.getElementById('cameraInput').click()">
-                        &#128247; Camera
-                    </button>
-                    <button class="btn btn-secondary btn-half" onclick="document.getElementById('uploadInput').click()">
-                        &#128193; Upload
-                    </button>
-                </div>
-                <button class="btn btn-outline btn-block" onclick="app.focusPasteZone()">Paste Image</button>
-                <div id="photoPasteZone" class="photo-paste-zone" tabindex="0" onpaste="app.handlePaste(event)">
-                    <strong>Paste image from clipboard</strong>
-                    <span>Copy image from WhatsApp Web or screenshot, then click here and press Ctrl+V.</span>
-                </div>
-                <div id="photoPreviewContainer" class="photo-preview-grid"></div>
+            <div id="formProgress" class="form-progress">
+                <span class="meta-text" style="margin-right:4px;">Required:</span>
+                <span class="form-progress-item" data-progress="photos"><span class="form-progress-dot"></span>Photos</span>
+                <span class="form-progress-item" data-progress="category"><span class="form-progress-dot"></span>Category</span>
+                <span class="form-progress-item" data-progress="severity"><span class="form-progress-dot"></span>Severity</span>
+                <span class="form-progress-item" data-progress="description"><span class="form-progress-dot"></span>Description</span>
             </div>
 
-            <div class="form-group">
-                <label>Defect Category <span class="required">*</span></label>
-                <div id="categorySelection" class="category-chip-grid"></div>
-                <div class="meta-text form-helper-text">You can select more than one category when one defect / photo shows a combined issue.</div>
-                <div id="categoryReferenceWrap" class="category-reference-wrap" style="display:none;">
-                    <div class="category-reference-head">
-                        <strong>Category Reference / Guide</strong>
-                        <span class="meta-text">Official sources with short quoted snippets</span>
+            <!-- SECTION: EVIDENCE -->
+            <div class="form-section">
+                <div class="form-section-title"><span class="section-icon">&#128247;</span>Evidence</div>
+                <div class="form-group" id="photoActionsWrap">
+                    <label>Photos</label>
+                    <div class="photo-actions">
+                        <input type="file" id="cameraInput" accept="image/*" capture="environment" onchange="app.handlePhoto(event)" style="display:none;">
+                        <input type="file" id="uploadInput" accept="image/*" multiple onchange="app.handlePhotoUpload(event)" style="display:none;">
+                        <button class="btn btn-secondary btn-half" onclick="document.getElementById('cameraInput').click()">
+                            &#128247; Camera
+                        </button>
+                        <button class="btn btn-secondary btn-half" onclick="document.getElementById('uploadInput').click()">
+                            &#128193; Upload
+                        </button>
                     </div>
-                    <div id="categoryReferenceList" class="category-reference-list"></div>
+                    <button class="btn btn-outline btn-block" onclick="app.focusPasteZone()">Paste Image</button>
+                    <div id="photoPasteZone" class="photo-paste-zone" tabindex="0" onpaste="app.handlePaste(event)">
+                        <strong>Paste image from clipboard</strong>
+                        <span>Copy image from WhatsApp Web or screenshot, then click here and press Ctrl+V.</span>
+                    </div>
+                    <div class="photo-actions-collapsed">
+                        <button class="btn btn-outline btn-block" onclick="app.expandPhotoActions()">+ Add more photos</button>
+                    </div>
+                    <div id="photoPreviewContainer" class="photo-preview-grid"></div>
                 </div>
             </div>
 
-            <div class="form-group">
-                <label for="severity">Severity <span class="required">*</span></label>
-                <div class="severity-options">
-                    <label class="severity-chip minor">
-                        <input type="radio" name="severity" value="Minor" checked> Minor
-                    </label>
-                    <label class="severity-chip major">
-                        <input type="radio" name="severity" value="Major"> Major
-                    </label>
-                    <label class="severity-chip critical">
-                        <input type="radio" name="severity" value="Critical"> Critical
-                    </label>
+            <!-- SECTION: CLASSIFY -->
+            <div class="form-section">
+                <div class="form-section-title"><span class="section-icon">&#127991;</span>Classify</div>
+                <div class="form-group">
+                    <label>Defect Category <span class="required">*</span></label>
+                    <div id="categorySelection" class="category-chip-grid"></div>
+                    <div class="meta-text form-helper-text">You can select more than one category when one defect / photo shows a combined issue.</div>
+                </div>
+
+                <div class="classify-row">
+                    <div class="form-group">
+                        <label for="severity">Severity <span class="required">*</span></label>
+                        <div class="severity-options">
+                            <label class="severity-chip minor">
+                                <input type="radio" name="severity" value="Minor" checked> Minor
+                            </label>
+                            <label class="severity-chip major">
+                                <input type="radio" name="severity" value="Major"> Major
+                            </label>
+                            <label class="severity-chip critical">
+                                <input type="radio" name="severity" value="Critical"> Critical
+                            </label>
+                        </div>
+                        <div class="severity-hint"><strong>Minor</strong>: cosmetic &bull; <strong>Major</strong>: functional &bull; <strong>Critical</strong>: safety / structural</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="status">Status</label>
+                        <select id="status">
+                            <option value="Open">Open</option>
+                            <option value="In Progress">In Progress</option>
+                            <option value="Resolved">Resolved</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
-            <div class="form-group">
-                <label for="status">Status</label>
-                <select id="status">
-                    <option value="Open">Open</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Resolved">Resolved</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label for="description">Description <span class="required">*</span></label>
-                <div id="descSuggestionWrap" class="desc-suggestion-wrap" style="display:none;">
-                    <select id="descSuggestion" onchange="app.applyDescSuggestion()">
-                        <option value="">-- Add common defect description --</option>
-                    </select>
-                    <div class="meta-text">You can choose more than one suggestion. Each selection will be added below.</div>
+            <!-- SECTION: DESCRIBE -->
+            <div class="form-section">
+                <div class="form-section-title"><span class="section-icon">&#128221;</span>Describe</div>
+                <div class="form-group">
+                    <label for="description">Description <span class="required">*</span></label>
+                    <div id="descSuggestionWrap" class="desc-suggestion-wrap" style="display:none;">
+                        <div class="desc-search-box">
+                            <input type="text" id="descSearch" class="desc-search-input" placeholder="Search description by keyword (e.g. crack, hollow, leak)..." oninput="app.searchDescSuggestions()" autocomplete="off">
+                            <button type="button" id="descSearchClear" class="desc-search-clear" style="display:none;" onclick="app.clearDescSearch()" aria-label="Clear search">&times;</button>
+                        </div>
+                        <div id="descSearchResults" class="desc-search-results" style="display:none;"></div>
+                        <details class="desc-suggestion-browse">
+                            <summary>Or browse all common descriptions</summary>
+                            <select id="descSuggestion" onchange="app.applyDescSuggestion()">
+                                <option value="">-- Add common defect description --</option>
+                            </select>
+                            <div class="meta-text">You can choose more than one suggestion. Each selection will be added below.</div>
+                        </details>
+                    </div>
+                    <textarea id="description" rows="2" placeholder="What is the exact issue?" oninput="app.refreshRemarksSuggestions(); app.updateFormProgress();"></textarea>
                 </div>
-                <textarea id="description" rows="2" placeholder="What is the exact issue?" oninput="app.refreshRemarksSuggestions()"></textarea>
-            </div>
 
-            <div class="form-group">
-                <label for="remarks">Remarks</label>
-                <div id="remarksSuggestionWrap" class="desc-suggestion-wrap" style="display:none;">
-                    <select id="remarksSuggestion" onchange="app.applyRemarkSuggestion()">
-                        <option value="">-- Add suggested rectification remark --</option>
-                    </select>
-                    <div class="meta-text">Suggestions are based on the selected category and the defect descriptions added above.</div>
+                <div class="form-group">
+                    <label for="remarks">Remarks</label>
+                    <div id="remarksSuggestionWrap" class="desc-suggestion-wrap" style="display:none;">
+                        <div class="desc-search-box">
+                            <input type="text" id="remarksSearch" class="desc-search-input" placeholder="Search remark by keyword (e.g. seal, realign, replace)..." oninput="app.searchRemarkSuggestions()" autocomplete="off">
+                            <button type="button" id="remarksSearchClear" class="desc-search-clear" style="display:none;" onclick="app.clearRemarkSearch()" aria-label="Clear search">&times;</button>
+                        </div>
+                        <div id="remarksSearchResults" class="desc-search-results" style="display:none;"></div>
+                        <details class="desc-suggestion-browse">
+                            <summary>Or browse suggested rectification remarks</summary>
+                            <select id="remarksSuggestion" onchange="app.applyRemarkSuggestion()">
+                                <option value="">-- Add suggested rectification remark --</option>
+                            </select>
+                            <div class="meta-text">Suggestions are based on the selected category and the defect descriptions added above.</div>
+                        </details>
+                    </div>
+                    <textarea id="remarks" rows="3" placeholder="Suggested rectification notes, standards-based remarks, or your own notes..."></textarea>
                 </div>
-                <textarea id="remarks" rows="3" placeholder="Suggested rectification notes, standards-based remarks, or your own notes..."></textarea>
             </div>
 
-            <button id="saveBtn" class="btn btn-primary btn-block" onclick="app.saveDefect()">Save Defect</button>
-            <button id="deleteBtn" class="btn btn-danger btn-block" style="display:none;" onclick="app.deleteDefect()">Delete Defect</button>
+            <div class="form-sticky-bar">
+                <button id="saveBtn" class="btn btn-primary btn-block" onclick="app.saveDefect()">Save Defect</button>
+                <button id="deleteBtn" class="btn btn-danger btn-block" style="display:none;" onclick="app.deleteDefect()">Delete Defect</button>
+            </div>
+
+            <details id="categoryReferenceWrap" class="category-reference-wrap" style="display:none;">
+                <summary class="category-reference-summary">
+                    <strong>Category Reference / Guide</strong>
+                    <span class="meta-text">Official sources with short quoted snippets &mdash; tap to view</span>
+                </summary>
+                <div id="categoryReferenceList" class="category-reference-list"></div>
+            </details>
         </div>
     </div>
 
