@@ -225,6 +225,58 @@ textarea { resize: vertical; }
 .home-actions { margin-bottom: 20px; }
 .home-actions-row { display: flex; gap: 8px; }
 
+.storage-card {
+    background: rgba(15, 23, 42, 0.64);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 14px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(8px);
+}
+
+.storage-card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.storage-card h2 {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 2px;
+}
+
+.storage-meter {
+    height: 8px;
+    overflow: hidden;
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 999px;
+}
+
+.storage-meter-fill {
+    width: 0%;
+    height: 100%;
+    background: var(--success);
+    border-radius: inherit;
+    transition: width 0.2s ease, background 0.2s ease;
+}
+
+.storage-meter-fill.warning { background: var(--warning); }
+.storage-meter-fill.danger { background: var(--danger); }
+
+.storage-stats {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 8px;
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
 .home-section { margin-bottom: 20px; }
 
 .section-header {
@@ -1261,4 +1313,3 @@ details[open] > .category-reference-summary::before {
 .form-progress-item.done {
     color: var(--text);
 }
-

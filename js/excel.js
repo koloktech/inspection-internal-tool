@@ -243,6 +243,7 @@ const excelDB = {
 
             app.showToast(`Imported: ${inspection.project} | ${inspection.unit}`, 'success');
             await app.loadAllProjects();
+            await app.updateStorageEstimate();
             app.nav('homeScreen');
 
         } catch (err) {

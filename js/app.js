@@ -28,6 +28,7 @@ const app = {
         this.bindKeyboardShortcuts();
         this.bindAutosaveListeners();
         this.restoreInspectionDraft();
+        await this.updateStorageEstimate();
     },
 
     bindFormProgressListeners() {
@@ -84,6 +85,9 @@ const app = {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
         document.getElementById(screenId).classList.add('active');
         window.scrollTo(0, 0);
+        if (screenId === 'homeScreen') {
+            this.updateStorageEstimate();
+        }
     },
 
     // --- Toast ---
@@ -127,6 +131,52 @@ const app = {
 
     closeReferences() {
         document.getElementById('referencesDialog').style.display = 'none';
+    },
+
+    async updateStorageEstimate() {
+        const statusEl = document.getElementById('storageStatusText');
+        const usedEl = document.getElementById('storageUsedText');
+        const quotaEl = document.getElementById('storageQuotaText');
+        const fillEl = document.getElementById('storageMeterFill');
+
+        if (!statusEl || !usedEl || !quotaEl || !fillEl) return;
+
+        if (!navigator.storage || typeof navigator.storage.estimate !== 'function') {
+            statusEl.textContent = 'Storage estimate is not available in this browser.';
+            usedEl.textContent = 'Used: unavailable';
+            quotaEl.textContent = 'Available: unavailable';
+            fillEl.style.width = '0%';
+            fillEl.className = 'storage-meter-fill';
+            return;
+        }
+
+        try {
+            const estimate = await navigator.storage.estimate();
+            const usage = estimate.usage || 0;
+            const quota = estimate.quota || 0;
+            const percent = quota > 0 ? Math.min(100, Math.round((usage / quota) * 100)) : 0;
+
+            fillEl.style.width = `${percent}%`;
+            fillEl.className = 'storage-meter-fill';
+            if (percent >= 80) {
+                fillEl.classList.add('danger');
+                statusEl.textContent = 'Storage almost full. Export backup soon.';
+            } else if (percent >= 60) {
+                fillEl.classList.add('warning');
+                statusEl.textContent = 'Storage getting high. Consider exporting old inspections.';
+            } else {
+                statusEl.textContent = 'Storage OK for field use.';
+            }
+
+            usedEl.textContent = `Used: ${this.formatBytes(usage)} (${percent}%)`;
+            quotaEl.textContent = `Limit: ${this.formatBytes(quota)}`;
+        } catch (e) {
+            statusEl.textContent = 'Unable to check storage right now.';
+            usedEl.textContent = 'Used: unavailable';
+            quotaEl.textContent = 'Available: unavailable';
+            fillEl.style.width = '0%';
+            fillEl.className = 'storage-meter-fill';
+        }
     },
 
     scheduleInspectionDraftSave() {
@@ -577,6 +627,7 @@ const app = {
             await DB.deleteDefectsByInspection(this.viewingInspection.id);
             await DB.deleteInspection(this.viewingInspection.id);
             this.viewingInspection = null;
+            this.updateStorageEstimate();
             this.showToast('Inspection deleted', 'info');
             await this.loadAllProjects();
             this.nav('homeScreen');
@@ -615,6 +666,7 @@ const app = {
 
         const id = await DB.saveInspection(inspection);
         inspection.id = id;
+        this.updateStorageEstimate();
         this.currentInspection = inspection;
         this.allInspections = [inspection, ...this.allInspections.filter(item => item.id !== inspection.id)];
         this.refreshProjectNameSuggestions();
@@ -684,6 +736,7 @@ const app = {
 
         this.currentInspection.areas.push(newArea);
         await DB.saveInspection(this.currentInspection);
+        this.updateStorageEstimate();
         input.value = '';
         await this.renderAreaList();
         this.showToast(`"${newArea}" added`, 'success');
@@ -881,6 +934,7 @@ const app = {
         await DB.saveDefect(defect);
         this.bumpCategoryUsage(categories);
         await this.clearDefectDraft();
+        this.updateStorageEstimate();
 
         btn.textContent = this.editingDefectId ? 'Update Defect' : 'Save Defect';
         btn.disabled = false;
@@ -893,6 +947,7 @@ const app = {
         this.showConfirm('Delete this defect? This cannot be undone.', async () => {
             await DB.deleteDefect(this.editingDefectId);
             await this.clearDefectDraft();
+            this.updateStorageEstimate();
             this.showToast('Defect deleted', 'info');
             await this.openDefectList(this.currentArea);
         });
@@ -972,6 +1027,7 @@ const app = {
                 this.currentPhotos.push(compressed);
                 this.renderPhotoPreview();
                 this.scheduleDefectDraftSave();
+                this.updateStorageEstimate();
             };
         };
     },
@@ -980,6 +1036,7 @@ const app = {
         this.currentPhotos.splice(index, 1);
         this.renderPhotoPreview();
         this.scheduleDefectDraftSave();
+        this.updateStorageEstimate();
     },
 
     renderPhotoPreview() {
@@ -1435,6 +1492,21 @@ const app = {
 
     formatMultilineHtml(str) {
         return this.escapeHtml(str).replace(/\n/g, '<br>');
+    },
+
+    formatBytes(bytes) {
+        if (!Number.isFinite(bytes) || bytes <= 0) return '0 MB';
+        const units = ['B', 'KB', 'MB', 'GB'];
+        let value = bytes;
+        let unitIndex = 0;
+
+        while (value >= 1024 && unitIndex < units.length - 1) {
+            value /= 1024;
+            unitIndex += 1;
+        }
+
+        const decimals = value >= 10 || unitIndex === 0 ? 0 : 1;
+        return `${value.toFixed(decimals)} ${units[unitIndex]}`;
     }
 };
 

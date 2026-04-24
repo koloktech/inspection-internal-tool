@@ -33,6 +33,23 @@
             <button class="btn btn-outline btn-block" onclick="app.openReferences()">View Standards &amp; References</button>
         </div>
 
+        <div class="storage-card">
+            <div class="storage-card-header">
+                <div>
+                    <h2>Phone Storage</h2>
+                    <span id="storageStatusText" class="meta-text">Checking storage...</span>
+                </div>
+                <button class="btn btn-outline btn-sm" onclick="app.updateStorageEstimate()">Refresh</button>
+            </div>
+            <div class="storage-meter" aria-hidden="true">
+                <div id="storageMeterFill" class="storage-meter-fill"></div>
+            </div>
+            <div class="storage-stats">
+                <span id="storageUsedText">Used: --</span>
+                <span id="storageQuotaText">Available: --</span>
+            </div>
+        </div>
+
         <div class="home-section">
             <div class="section-header">
                 <h2>All Projects</h2>
