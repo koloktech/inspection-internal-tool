@@ -1,4 +1,4 @@
-const CACHE_NAME = 'prospec-inspection-v2';
+const CACHE_NAME = 'prospec-inspection-v3';
 const APP_SHELL_FILES = [
     './',
     './index.html',

@@ -10,6 +10,8 @@ const app = {
     currentPhotos: [],
     confirmCallback: null,
     allInspections: [],
+    inspectionDraftTimer: null,
+    defectDraftTimer: null,
 
     DEFAULT_AREAS: [
         'Living Room', 'Master Bedroom', 'Bedroom 2', 'Bedroom 3',
@@ -24,6 +26,8 @@ const app = {
         await this.loadAllProjects();
         this.bindFormProgressListeners();
         this.bindKeyboardShortcuts();
+        this.bindAutosaveListeners();
+        this.restoreInspectionDraft();
     },
 
     bindFormProgressListeners() {
@@ -51,6 +55,28 @@ const app = {
                 this.nav('defectListScreen');
             }
         });
+    },
+
+    bindAutosaveListeners() {
+        ['project', 'unit', 'inspector', 'client', 'developer', 'address'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('input', () => this.scheduleInspectionDraftSave());
+        });
+
+        ['description', 'remarks'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('input', () => this.scheduleDefectDraftSave());
+        });
+
+        const statusEl = document.getElementById('status');
+        if (statusEl) statusEl.addEventListener('change', () => this.scheduleDefectDraftSave());
+
+        document.querySelectorAll('input[name="severity"]').forEach(radio => {
+            radio.addEventListener('change', () => this.scheduleDefectDraftSave());
+        });
+
+        const categoryEl = document.getElementById('categorySelection');
+        if (categoryEl) categoryEl.addEventListener('change', () => this.scheduleDefectDraftSave());
     },
 
     // --- Navigation ---
@@ -101,6 +127,137 @@ const app = {
 
     closeReferences() {
         document.getElementById('referencesDialog').style.display = 'none';
+    },
+
+    scheduleInspectionDraftSave() {
+        clearTimeout(this.inspectionDraftTimer);
+        this.inspectionDraftTimer = setTimeout(() => this.saveInspectionDraft(), 250);
+    },
+
+    saveInspectionDraft() {
+        const draft = {
+            project: document.getElementById('project').value,
+            unit: document.getElementById('unit').value,
+            inspector: document.getElementById('inspector').value,
+            client: document.getElementById('client').value,
+            developer: document.getElementById('developer').value,
+            address: document.getElementById('address').value,
+            updatedAt: new Date().toISOString()
+        };
+
+        const hasContent = Object.entries(draft)
+            .filter(([key]) => key !== 'updatedAt')
+            .some(([, value]) => String(value || '').trim());
+
+        if (!hasContent) {
+            localStorage.removeItem('prospec_new_inspection_draft');
+            return;
+        }
+
+        try {
+            localStorage.setItem('prospec_new_inspection_draft', JSON.stringify(draft));
+        } catch (e) {
+            this.showToast('Unable to autosave inspection draft. Storage may be full.', 'error');
+        }
+    },
+
+    restoreInspectionDraft() {
+        try {
+            const raw = localStorage.getItem('prospec_new_inspection_draft');
+            if (!raw) return;
+
+            const draft = JSON.parse(raw);
+            ['project', 'unit', 'inspector', 'client', 'developer', 'address'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el && typeof draft[id] === 'string') el.value = draft[id];
+            });
+            this.updateProjectSuggestionHint();
+        } catch (e) {
+            localStorage.removeItem('prospec_new_inspection_draft');
+        }
+    },
+
+    clearInspectionDraft() {
+        clearTimeout(this.inspectionDraftTimer);
+        localStorage.removeItem('prospec_new_inspection_draft');
+    },
+
+    getDefectDraftKey() {
+        if (!this.currentInspection || !this.currentArea) return null;
+        const mode = this.editingDefectId ? `edit-${this.editingDefectId}` : 'new';
+        return `prospec_defect_draft_${this.currentInspection.id}_${this.currentArea}_${mode}`;
+    },
+
+    scheduleDefectDraftSave() {
+        clearTimeout(this.defectDraftTimer);
+        this.defectDraftTimer = setTimeout(() => this.saveDefectDraft(), 250);
+    },
+
+    async saveDefectDraft() {
+        const key = this.getDefectDraftKey();
+        if (!key) return;
+
+        const draft = {
+            inspectionId: this.currentInspection.id,
+            area: this.currentArea,
+            editingDefectId: this.editingDefectId,
+            categories: this.getSelectedCategories(),
+            severity: document.querySelector('input[name="severity"]:checked')?.value || 'Minor',
+            status: document.getElementById('status').value,
+            description: document.getElementById('description').value,
+            remarks: document.getElementById('remarks').value,
+            photos: this.currentPhotos,
+            updatedAt: new Date().toISOString()
+        };
+
+        const hasContent = draft.categories.length > 0
+            || draft.description.trim()
+            || draft.remarks.trim()
+            || draft.photos.length > 0
+            || draft.status !== 'Open'
+            || draft.severity !== 'Minor';
+
+        if (!hasContent) {
+            await DB.deleteDraft(key);
+            return;
+        }
+
+        try {
+            await DB.saveDraft(key, draft);
+        } catch (e) {
+            this.showToast('Unable to autosave defect draft. Export/clear old data if storage is full.', 'error');
+        }
+    },
+
+    async restoreDefectDraft() {
+        const key = this.getDefectDraftKey();
+        if (!key) return false;
+
+        try {
+            const draft = await DB.getDraft(key);
+            if (!draft) return false;
+
+            this.setSelectedCategories(draft.categories || []);
+            document.getElementById('description').value = draft.description || '';
+            document.getElementById('remarks').value = draft.remarks || '';
+            document.getElementById('status').value = draft.status || 'Open';
+
+            const severityRadio = document.querySelector(`input[name="severity"][value="${draft.severity || 'Minor'}"]`);
+            if (severityRadio) severityRadio.checked = true;
+
+            this.currentPhotos = Array.isArray(draft.photos) ? draft.photos : [];
+            this.showToast('Autosaved draft restored', 'info');
+            return true;
+        } catch (e) {
+            await DB.deleteDraft(key);
+            return false;
+        }
+    },
+
+    async clearDefectDraft() {
+        clearTimeout(this.defectDraftTimer);
+        const key = this.getDefectDraftKey();
+        if (key) await DB.deleteDraft(key);
     },
 
     renderCategoryOptions() {
@@ -164,6 +321,7 @@ const app = {
 
     openNewInspection() {
         this.refreshProjectNameSuggestions();
+        this.restoreInspectionDraft();
         this.updateProjectSuggestionHint();
         this.nav('newInspectionScreen');
     },
@@ -468,6 +626,7 @@ const app = {
         document.getElementById('client').value = '';
         document.getElementById('developer').value = '';
         document.getElementById('address').value = '';
+        this.clearInspectionDraft();
         this.updateProjectSuggestionHint();
 
         document.getElementById('inspectionTitle').textContent = `${project} | ${unit}`;
@@ -624,7 +783,7 @@ const app = {
     // ============================================
     // DEFECT FORM
     // ============================================
-    openDefectForm() {
+    async openDefectForm() {
         this.editingDefectId = null;
         this.currentPhotos = [];
         document.getElementById('formTitle').textContent = 'New Defect';
@@ -645,6 +804,7 @@ const app = {
         this.clearRemarkSearch();
         document.getElementById('photoPasteZone').blur();
 
+        await this.restoreDefectDraft();
         this.onCategoryChange();
         this.renderPhotoPreview();
         this.updatePhotoCollapsedState();
@@ -673,6 +833,7 @@ const app = {
         document.getElementById('saveBtn').textContent = 'Update Defect';
 
         // Populate description suggestions for this category
+        await this.restoreDefectDraft();
         this.onCategoryChange();
 
         this.renderPhotoPreview();
@@ -719,6 +880,7 @@ const app = {
 
         await DB.saveDefect(defect);
         this.bumpCategoryUsage(categories);
+        await this.clearDefectDraft();
 
         btn.textContent = this.editingDefectId ? 'Update Defect' : 'Save Defect';
         btn.disabled = false;
@@ -730,6 +892,7 @@ const app = {
     deleteDefect() {
         this.showConfirm('Delete this defect? This cannot be undone.', async () => {
             await DB.deleteDefect(this.editingDefectId);
+            await this.clearDefectDraft();
             this.showToast('Defect deleted', 'info');
             await this.openDefectList(this.currentArea);
         });
@@ -808,6 +971,7 @@ const app = {
                 const compressed = canvas.toDataURL('image/jpeg', 0.75);
                 this.currentPhotos.push(compressed);
                 this.renderPhotoPreview();
+                this.scheduleDefectDraftSave();
             };
         };
     },
@@ -815,6 +979,7 @@ const app = {
     removePhoto(index) {
         this.currentPhotos.splice(index, 1);
         this.renderPhotoPreview();
+        this.scheduleDefectDraftSave();
     },
 
     renderPhotoPreview() {
@@ -911,6 +1076,7 @@ const app = {
         this.clearDescSearch();
         this.clearRemarkSearch();
         this.updateFormProgress();
+        this.scheduleDefectDraftSave();
 
         if (categories.length > 0 && !this.editingDefectId) {
             setTimeout(() => this.scrollToDescription(), 100);
@@ -938,6 +1104,7 @@ const app = {
         select.value = '';
         descriptionEl.focus();
         this.refreshRemarksSuggestions();
+        this.scheduleDefectDraftSave();
     },
 
     searchDescSuggestions() {
@@ -1043,6 +1210,7 @@ const app = {
         this.clearDescSearch();
         descriptionEl.focus();
         this.refreshRemarksSuggestions();
+        this.scheduleDefectDraftSave();
     },
 
     clearDescSearch() {
@@ -1132,6 +1300,7 @@ const app = {
 
         this.clearRemarkSearch();
         remarksEl.focus();
+        this.scheduleDefectDraftSave();
     },
 
     clearRemarkSearch() {
@@ -1249,6 +1418,7 @@ const app = {
 
         select.value = '';
         remarksEl.focus();
+        this.scheduleDefectDraftSave();
     },
 
     // === EXPORT ===

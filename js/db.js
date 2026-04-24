@@ -4,7 +4,7 @@
  */
 const DB = {
     DB_NAME: 'MeemInspectionDB',
-    DB_VERSION: 1,
+    DB_VERSION: 2,
     db: null,
 
     async init() {
@@ -23,6 +23,10 @@ const DB = {
                     const defStore = db.createObjectStore('defects', { keyPath: 'id', autoIncrement: true });
                     defStore.createIndex('inspectionId', 'inspectionId', { unique: false });
                     defStore.createIndex('area', 'area', { unique: false });
+                }
+
+                if (!db.objectStoreNames.contains('drafts')) {
+                    db.createObjectStore('drafts', { keyPath: 'id' });
                 }
             };
 
@@ -128,6 +132,37 @@ const DB = {
         return new Promise((resolve, reject) => {
             tx.oncomplete = () => resolve();
             tx.onerror = () => reject(tx.error);
+        });
+    },
+
+    // --- Drafts ---
+    async saveDraft(id, data) {
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction('drafts', 'readwrite');
+            const store = tx.objectStore('drafts');
+            const request = store.put({ id, data, updatedAt: new Date().toISOString() });
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    },
+
+    async getDraft(id) {
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction('drafts', 'readonly');
+            const store = tx.objectStore('drafts');
+            const request = store.get(id);
+            request.onsuccess = () => resolve(request.result?.data || null);
+            request.onerror = () => reject(request.error);
+        });
+    },
+
+    async deleteDraft(id) {
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction('drafts', 'readwrite');
+            const store = tx.objectStore('drafts');
+            const request = store.delete(id);
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
         });
     }
 };
