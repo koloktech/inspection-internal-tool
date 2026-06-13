@@ -1,0 +1,137 @@
+- generic [ref=e125]:
+  - banner [ref=e126]:
+    - button "←" [ref=e127] [cursor=pointer]
+    - generic [ref=e128]:
+      - heading "New Defect" [level=2] [ref=e129]
+      - text: Living Room
+  - generic [ref=e130]:
+    - generic [ref=e131]:
+      - generic [ref=e132]: "Required:"
+      - generic [ref=e133]: Photos
+      - generic [ref=e135]: Category
+      - generic [ref=e137]: Severity
+      - generic [ref=e139]: Description
+    - generic [ref=e141]:
+      - generic [ref=e142]:
+        - generic [ref=e143]: 📷
+        - text: Evidence
+      - generic [ref=e144]:
+        - generic [ref=e145]: Photos
+        - generic [ref=e146]:
+          - button "📷 Camera" [ref=e147] [cursor=pointer]
+          - button "📁 Upload" [ref=e148] [cursor=pointer]
+        - button "Paste Image" [ref=e149] [cursor=pointer]
+        - generic [ref=e150]:
+          - strong [ref=e151]: Paste image from clipboard
+          - generic [ref=e152]: Copy image from WhatsApp Web or screenshot, then click here and press Ctrl+V.
+    - generic [ref=e153]:
+      - generic [ref=e154]:
+        - generic [ref=e155]: 🏷
+        - text: Classify
+      - generic [ref=e156]:
+        - generic [ref=e157]: Defect Category *
+        - generic [ref=e158]:
+          - generic [ref=e159] [cursor=pointer]:
+            - checkbox "Wall" [checked] [active]
+            - generic [ref=e160]: Wall
+          - generic [ref=e161] [cursor=pointer]:
+            - checkbox "Ceilings"
+            - generic [ref=e162]: Ceilings
+          - generic [ref=e163] [cursor=pointer]:
+            - checkbox "Tiles"
+            - generic [ref=e164]: Tiles
+          - generic [ref=e165] [cursor=pointer]:
+            - checkbox "Floor"
+            - generic [ref=e166]: Floor
+          - generic [ref=e167] [cursor=pointer]:
+            - checkbox "Plumbing/Sanitary"
+            - generic [ref=e168]: Plumbing/Sanitary
+          - generic [ref=e169] [cursor=pointer]:
+            - checkbox "Doors"
+            - generic [ref=e170]: Doors
+          - generic [ref=e171] [cursor=pointer]:
+            - checkbox "Windows"
+            - generic [ref=e172]: Windows
+          - generic [ref=e173] [cursor=pointer]:
+            - checkbox "Electrical"
+            - generic [ref=e174]: Electrical
+          - generic [ref=e175] [cursor=pointer]:
+            - checkbox "Gate"
+            - generic [ref=e176]: Gate
+          - generic [ref=e177] [cursor=pointer]:
+            - checkbox "Painting"
+            - generic [ref=e178]: Painting
+          - generic [ref=e179] [cursor=pointer]:
+            - checkbox "Water Ponding Test"
+            - generic [ref=e180]: Water Ponding Test
+          - generic [ref=e181] [cursor=pointer]:
+            - checkbox "Others"
+            - generic [ref=e182]: Others
+      - generic [ref=e183]:
+        - generic [ref=e184]:
+          - generic [ref=e185]: Severity *
+          - generic [ref=e186]:
+            - generic [ref=e187] [cursor=pointer]: Minor
+            - generic [ref=e188] [cursor=pointer]: Major
+            - generic [ref=e189] [cursor=pointer]: Critical
+        - generic [ref=e190]:
+          - generic [ref=e191]: Status
+          - combobox "Status" [ref=e192]:
+            - option "Open" [selected]
+            - option "In Progress"
+            - option "Resolved"
+    - generic [ref=e193]:
+      - generic [ref=e194]:
+        - generic [ref=e195]: 📝
+        - text: Describe
+      - generic [ref=e196]:
+        - generic [ref=e197]: Description *
+        - generic [ref=e204]:
+          - textbox "Search description by keyword (e.g. crack, hollow, leak)..." [ref=e206]
+          - group [ref=e207]:
+            - generic "▶ Or browse all common descriptions" [ref=e208] [cursor=pointer]
+            - option "-- Add common defect description --" [selected]
+            - option "Hairline cracks observed on the wall surface."
+            - option "Horizontal cracks observed on the wall surface."
+            - option "Visible roller marks with incomplete / uneven paintwork."
+            - option "Paint coverage is inconsistent with visible unpainted sections."
+            - option "Paint roller marks, surface holes, and staining observed on the painted surface."
+            - option "Unfinished paintwork noted at the affected area."
+            - option "Wall surface shows signs of inadequate finishing, including patchy areas and uneven texture."
+            - option "Visible patching / touch-up marks observed on the wall surface due to poor patchwork."
+            - option "Poor plastering / skim coat workmanship observed with uneven finishing to the wall surface."
+            - option "Poor wall finishing workmanship observed at the affected area."
+            - option "Visible gap noted along the wall-lining/skirting junction."
+            - option "Stain observed on the wall surface suspected due to moisture / water seepage."
+            - option "Areas with high moisture were identified, with the presence of water marks / seepage stains."
+            - option "Hollow concrete detected upon tapping test at the wall surface."
+            - option "Crack observed at the wall-to-ceiling joint."
+            - option "Chipped / damaged plaster observed on the wall."
+            - option "Bulging / uneven wall surface detected."
+            - option "Nail / screw pop visible on the wall surface."
+            - option "Mould / fungal growth observed on the wall surface."
+            - option "Efflorescence (white salt deposits) visible on the wall."
+            - option "High moisture content detected via damp meter; visible water marks and active seepage observed."
+            - option "Gap between wall and window/door frame observed."
+            - option "Mud tubes / termite tunnels observed running along the wall-skirting junction, indicating active subterranean termite activity."
+            - option "Timber skirting / wall lining showing signs of termite damage (hollow, chewed, or honeycombed appearance) with visible frass deposits."
+            - option "Missing / uninstalled wall-mounted component (e.g. skirting, cove, corner guard, wall panel) as per S&P/SPA specification."
+        - textbox "Description *" [ref=e198]:
+          - /placeholder: What is the exact issue?
+      - generic [ref=e199]:
+        - generic [ref=e200]: Remarks
+        - generic [ref=e209]:
+          - textbox "Search remark by keyword (e.g. seal, realign, replace)..." [ref=e211]
+          - group [ref=e212]:
+            - generic "▶ Or browse suggested rectification remarks" [ref=e213] [cursor=pointer]
+            - option "-- Add suggested rectification remark --" [selected]
+            - option "Hack and remove loose / hollow wall plaster where required, re-render / skim affected area, and repaint to a uniform finish matching adjacent surfaces."
+            - option "Trace and rectify the source of any moisture ingress before making good wall finishes and carrying out final repainting."
+        - textbox "Remarks" [ref=e201]:
+          - /placeholder: Suggested rectification notes, standards-based remarks, or your own notes...
+    - button "Save Defect" [ref=e203] [cursor=pointer]
+    - group [ref=e214]:
+      - generic "▶ Category Reference / Guide Official sources with short quoted snippets — tap to view" [ref=e215] [cursor=pointer]:
+        - text: ▶
+        - strong [ref=e216]: Category Reference / Guide
+        - generic [ref=e217]: Official sources with short quoted snippets — tap to view

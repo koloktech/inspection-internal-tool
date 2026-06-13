@@ -1,0 +1,38 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - heading "PROSPEC Inspection" [level=1] [ref=e4]
+      - generic [ref=e5]: Internal Tool
+    - generic [ref=e6]:
+      - button "+ New Inspection" [ref=e7] [cursor=pointer]
+      - generic [ref=e8]:
+        - button "Import Excel" [ref=e9] [cursor=pointer]
+        - button "Export All" [ref=e10] [cursor=pointer]
+      - generic [ref=e11]:
+        - button "Backup All Data" [ref=e12] [cursor=pointer]
+        - button "Restore Backup" [ref=e13] [cursor=pointer]
+      - button "View Standards & References" [ref=e14] [cursor=pointer]
+    - generic [ref=e15]:
+      - generic [ref=e16]:
+        - generic [ref=e17]:
+          - heading "Phone Storage" [level=2] [ref=e18]
+          - text: Storage OK for field use.
+        - button "Refresh" [ref=e19] [cursor=pointer]
+      - generic [ref=e21]:
+        - generic [ref=e22]: "Used: 4.7 MB (0%)"
+        - generic [ref=e23]: "Limit: 3.0 GB"
+    - generic [ref=e24]:
+      - generic [ref=e25]:
+        - heading "All Projects" [level=2] [ref=e26]
+        - generic [ref=e27]: 1 project
+      - textbox "Search projects..." [ref=e29]
+      - generic [ref=e31] [cursor=pointer]:
+        - generic [ref=e32]:
+          - generic [ref=e33]: Test Project
+          - generic [ref=e34]: ›
+        - generic [ref=e35]: Unit A
+        - generic [ref=e36]:
+          - generic [ref=e37]: 13 Jun 2026
+          - generic [ref=e38]: —
+        - generic [ref=e40]: 0 defects
+  - text: ▶ ▶ ▶

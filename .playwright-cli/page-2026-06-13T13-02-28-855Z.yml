@@ -1,0 +1,63 @@
+- generic [active] [ref=e1]:
+  - text: ▶ ▶ ▶
+  - generic [ref=e41]:
+    - banner [ref=e42]:
+      - button "←" [ref=e43] [cursor=pointer]
+      - generic [ref=e44]:
+        - heading "Test Project" [level=2] [ref=e45]
+        - text: Unit A
+    - generic [ref=e46]:
+      - generic [ref=e47]:
+        - generic [ref=e48]:
+          - heading "Project Details" [level=3] [ref=e49]
+          - generic [ref=e50]: "Created: 13 June 2026"
+        - generic [ref=e51]:
+          - generic [ref=e52]:
+            - generic [ref=e53]: Project
+            - combobox "Project" [ref=e54]: Test Project
+          - generic [ref=e55]:
+            - generic [ref=e56]: Unit / Block
+            - textbox "Unit / Block" [ref=e57]:
+              - /placeholder: Unit / block
+              - text: Unit A
+          - generic [ref=e58]:
+            - generic [ref=e59]: Inspector
+            - textbox "Inspector" [ref=e60]:
+              - /placeholder: Inspector name
+          - generic [ref=e61]:
+            - generic [ref=e62]: Client / Purchaser
+            - textbox "Client / Purchaser" [ref=e63]:
+              - /placeholder: Client name
+          - generic [ref=e64]:
+            - generic [ref=e65]: Developer / Contractor
+            - textbox "Developer / Contractor" [ref=e66]:
+              - /placeholder: Developer / contractor
+          - generic [ref=e67]:
+            - generic [ref=e68]: Property Address
+            - textbox "Property Address" [ref=e69]:
+              - /placeholder: Full address of property...
+        - button "Save Project Details" [ref=e70] [cursor=pointer]
+      - generic [ref=e71]:
+        - heading "Defect Summary" [level=3] [ref=e72]
+        - generic [ref=e73]:
+          - generic [ref=e74]:
+            - generic [ref=e75]: "0"
+            - generic [ref=e76]: Total
+          - generic [ref=e77]:
+            - generic [ref=e78]: "0"
+            - generic [ref=e79]: Minor
+          - generic [ref=e80]:
+            - generic [ref=e81]: "0"
+            - generic [ref=e82]: Major
+          - generic [ref=e83]:
+            - generic [ref=e84]: "0"
+            - generic [ref=e85]: Critical
+    - generic [ref=e86]:
+      - heading "All Defects" [level=3] [ref=e87]
+      - paragraph [ref=e90]: No defects recorded.
+    - generic [ref=e91]:
+      - button "Continue Inspection" [ref=e92] [cursor=pointer]
+      - generic [ref=e93]:
+        - button "Export Word" [ref=e94] [cursor=pointer]
+        - button "Save to Excel" [ref=e95] [cursor=pointer]
+      - button "Delete Inspection" [ref=e96] [cursor=pointer]

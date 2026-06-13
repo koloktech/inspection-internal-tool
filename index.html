@@ -30,6 +30,10 @@
                 <button class="btn btn-outline btn-half" onclick="excelDB.importFromExcel()">Import Excel</button>
                 <button class="btn btn-outline btn-half" onclick="excelDB.exportAllToExcel()">Export All</button>
             </div>
+            <div class="home-actions-row">
+                <button class="btn btn-outline btn-half" onclick="excelDB.exportFullBackup()">Backup All Data</button>
+                <button class="btn btn-outline btn-half" onclick="excelDB.importFullBackup()">Restore Backup</button>
+            </div>
             <button class="btn btn-outline btn-block" onclick="app.openReferences()">View Standards &amp; References</button>
         </div>
 
@@ -204,11 +208,13 @@
                             &#128193; Upload
                         </button>
                     </div>
-                    <button class="btn btn-outline btn-block" onclick="app.focusPasteZone()">Paste Image</button>
-                    <div id="photoPasteZone" class="photo-paste-zone" tabindex="0" onpaste="app.handlePaste(event)">
-                        <strong>Paste image from clipboard</strong>
-                        <span>Copy image from WhatsApp Web or screenshot, then click here and press Ctrl+V.</span>
-                    </div>
+                    <details id="pasteImageDetails" class="paste-image-details">
+                        <summary>Paste image from clipboard</summary>
+                        <div id="photoPasteZone" class="photo-paste-zone" tabindex="0" onpaste="app.handlePaste(event)">
+                            <strong>Paste image here</strong>
+                            <span>Copy image from WhatsApp Web or screenshot, then tap here and press Ctrl+V.</span>
+                        </div>
+                    </details>
                     <div class="photo-actions-collapsed">
                         <button class="btn btn-outline btn-block" onclick="app.expandPhotoActions()">+ Add more photos</button>
                     </div>
@@ -463,6 +469,7 @@
 
     <!-- Hidden file input for Excel import -->
     <input type="file" id="excelImportInput" accept=".xlsx,.xls" onchange="excelDB.handleImport(event)" style="display:none;">
+    <input type="file" id="backupImportInput" accept=".json,application/json" onchange="excelDB.handleFullBackupImport(event)" style="display:none;">
 
     <script src="js/db.js"></script>
     <script src="js/descriptions.js"></script>

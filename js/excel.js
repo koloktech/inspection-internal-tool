@@ -158,6 +158,106 @@ const excelDB = {
     },
 
     // ============================================
+    // FULL JSON BACKUP / RESTORE
+    // ============================================
+    async exportFullBackup() {
+        const inspections = await DB.getAllInspections();
+        if (inspections.length === 0) {
+            app.showToast('No inspections to backup', 'error');
+            return;
+        }
+
+        const backupInspections = [];
+        let totalDefects = 0;
+
+        for (const inspection of inspections) {
+            const defects = await DB.getDefectsByInspection(inspection.id);
+            totalDefects += defects.length;
+            backupInspections.push({
+                inspection,
+                defects
+            });
+        }
+
+        const backup = {
+            type: 'prospec-inspection-full-backup',
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            sourceDb: DB.DB_NAME,
+            inspections: backupInspections
+        };
+
+        const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const date = new Date().toISOString().slice(0, 10);
+
+        link.href = url;
+        link.download = `PROSPEC Full Backup - ${date}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        app.showToast(`Backup saved: ${inspections.length} inspections, ${totalDefects} defects`, 'success');
+    },
+
+    importFullBackup() {
+        document.getElementById('backupImportInput').click();
+    },
+
+    async handleFullBackupImport(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        event.target.value = '';
+
+        try {
+            const backup = JSON.parse(await file.text());
+
+            if (backup.type !== 'prospec-inspection-full-backup' || !Array.isArray(backup.inspections)) {
+                app.showToast('Invalid PROSPEC backup file', 'error');
+                return;
+            }
+
+            let restoredInspections = 0;
+            let restoredDefects = 0;
+
+            for (const item of backup.inspections) {
+                if (!item || !item.inspection) continue;
+
+                const oldInspectionId = item.inspection.id;
+                const inspection = { ...item.inspection };
+                delete inspection.id;
+
+                const newInspectionId = await DB.saveInspection(inspection);
+                restoredInspections += 1;
+
+                const defects = Array.isArray(item.defects) ? item.defects : [];
+                for (const originalDefect of defects) {
+                    const defect = {
+                        ...originalDefect,
+                        inspectionId: newInspectionId
+                    };
+                    delete defect.id;
+
+                    if (oldInspectionId === undefined || originalDefect.inspectionId === oldInspectionId) {
+                        await DB.saveDefect(defect);
+                        restoredDefects += 1;
+                    }
+                }
+            }
+
+            app.showToast(`Restored ${restoredInspections} inspections, ${restoredDefects} defects`, 'success');
+            await app.loadAllProjects();
+            await app.updateStorageEstimate();
+            app.nav('homeScreen');
+        } catch (err) {
+            console.error('Backup import error:', err);
+            app.showToast('Error restoring backup: ' + err.message, 'error');
+        }
+    },
+
+    // ============================================
     // IMPORT FROM EXCEL
     // ============================================
     importFromExcel() {

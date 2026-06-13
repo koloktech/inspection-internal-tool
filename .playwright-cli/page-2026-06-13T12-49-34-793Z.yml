@@ -1,0 +1,12 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e116]:
+    - banner [ref=e117]:
+      - button "←" [ref=e118] [cursor=pointer]
+      - generic [ref=e119]:
+        - heading "Living Room" [level=2] [ref=e120]
+        - text: 0 defects
+      - button "+ New" [ref=e121] [cursor=pointer]
+    - generic [ref=e122]:
+      - paragraph [ref=e123]: No defects recorded for this area.
+      - button "+ Add First Defect" [ref=e124] [cursor=pointer]
+  - text: ▶ ▶ ▶

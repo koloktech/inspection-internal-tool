@@ -1034,6 +1034,9 @@ const app = {
     },
 
     focusPasteZone() {
+        const pasteDetails = document.getElementById('pasteImageDetails');
+        if (pasteDetails) pasteDetails.open = true;
+
         const pasteZone = document.getElementById('photoPasteZone');
         if (!pasteZone) return;
         pasteZone.focus();
@@ -1199,9 +1202,6 @@ const app = {
         this.updateFormProgress();
         this.scheduleDefectDraftSave();
 
-        if (categories.length > 0 && !this.editingDefectId) {
-            setTimeout(() => this.scrollToDescription(), 100);
-        }
     },
 
     applyDescSuggestion() {
