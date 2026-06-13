@@ -1,0 +1,32 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e32]:
+    - banner [ref=e33]:
+      - button "←" [ref=e34] [cursor=pointer]
+      - heading "New Inspection" [level=2] [ref=e36]
+    - generic [ref=e37]:
+      - generic [ref=e38]:
+        - generic [ref=e39]:
+          - generic [ref=e40]: Project Name *
+          - combobox "Project Name *" [ref=e41]
+        - generic [ref=e42]:
+          - generic [ref=e43]: Unit / Block *
+          - textbox "Unit / Block *" [ref=e44]:
+            - /placeholder: e.g., Block C 1755
+        - generic [ref=e45]:
+          - generic [ref=e46]: Inspector Name
+          - textbox "Inspector Name" [ref=e47]:
+            - /placeholder: e.g., Ahmad Bin Ali
+        - generic [ref=e48]:
+          - generic [ref=e49]: Client / Purchaser Name
+          - textbox "Client / Purchaser Name" [ref=e50]:
+            - /placeholder: e.g., Dr Alex Pega Mahda
+        - generic [ref=e51]:
+          - generic [ref=e52]: Developer / Contractor
+          - textbox "Developer / Contractor" [ref=e53]:
+            - /placeholder: e.g., Kenbest Construction Sdn Bhd
+        - generic [ref=e54]:
+          - generic [ref=e55]: Property Address
+          - textbox "Property Address" [ref=e56]:
+            - /placeholder: Full address of property...
+      - button "Start Inspection" [ref=e57] [cursor=pointer]
+  - text: + ▶ ▶ ▶

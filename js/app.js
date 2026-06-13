@@ -13,11 +13,32 @@ const app = {
     inspectionDraftTimer: null,
     defectDraftTimer: null,
 
-    DEFAULT_AREAS: [
-        'Living Room', 'Master Bedroom', 'Bedroom 2', 'Bedroom 3',
-        'Kitchen', 'Toilet 1', 'Toilet 2', 'Yard', 'Car Porch',
-        'Balcony', 'Hallway', 'Laundry Area', 'Store Room'
+    AREA_GROUPS: [
+        {
+            name: 'Common Areas',
+            areas: ['Entrance / Foyer', 'Living Room', 'Dining Area', 'Hallway', 'Family Area', 'Staircase']
+        },
+        {
+            name: 'Bedrooms',
+            areas: ['Master Bedroom', 'Bedroom 1', 'Bedroom 2', 'Bedroom 3']
+        },
+        {
+            name: 'Kitchen & Wet Areas',
+            areas: ['Kitchen', 'Dry Kitchen', 'Wet Kitchen', 'Master Bathroom', 'Toilet 1', 'Toilet 2', 'Toilet 3']
+        },
+        {
+            name: 'Utility & Storage',
+            areas: ['Yard', 'Laundry Area', 'Store Room']
+        },
+        {
+            name: 'External Areas',
+            areas: ['Balcony', 'Car Porch']
+        }
     ],
+
+    get DEFAULT_AREAS() {
+        return this.AREA_GROUPS.flatMap(group => group.areas);
+    },
 
     // --- Init ---
     async init() {
@@ -762,6 +783,34 @@ const app = {
     // ============================================
     // AREA LIST
     // ============================================
+    getGroupedInspectionAreas(areas = []) {
+        const storedAreas = Array.isArray(areas) && areas.length > 0 ? areas : this.DEFAULT_AREAS;
+        const storedSet = new Set(storedAreas);
+        const grouped = [];
+        const used = new Set();
+
+        this.AREA_GROUPS.forEach(group => {
+            const groupAreas = group.areas.filter(area => storedSet.has(area) || this.DEFAULT_AREAS.includes(area));
+            if (groupAreas.length === 0) return;
+
+            groupAreas.forEach(area => used.add(area));
+            grouped.push({
+                name: group.name,
+                areas: groupAreas
+            });
+        });
+
+        const customAreas = storedAreas.filter(area => !used.has(area));
+        if (customAreas.length > 0) {
+            grouped.push({
+                name: 'Custom Areas',
+                areas: customAreas
+            });
+        }
+
+        return grouped;
+    },
+
     async renderAreaList() {
         const listDiv = document.getElementById('areaButtonsList');
         listDiv.innerHTML = '';
@@ -774,17 +823,34 @@ const app = {
             areaCounts[d.area] = (areaCounts[d.area] || 0) + 1;
         });
 
-        areas.forEach(area => {
-            const count = areaCounts[area] || 0;
-            const btn = document.createElement('button');
-            btn.className = 'area-btn';
-            btn.innerHTML = `
-                <span class="area-name">${this.escapeHtml(area)}</span>
-                ${count > 0 ? `<span class="area-badge">${count}</span>` : ''}
-                <span class="area-arrow">&#8250;</span>
+        this.getGroupedInspectionAreas(areas).forEach(group => {
+            const groupEl = document.createElement('section');
+            groupEl.className = 'area-group';
+
+            const groupCount = group.areas.reduce((sum, area) => sum + (areaCounts[area] || 0), 0);
+            groupEl.innerHTML = `
+                <div class="area-group-header">
+                    <span>${this.escapeHtml(group.name)}</span>
+                    ${groupCount > 0 ? `<span class="area-group-count">${groupCount}</span>` : ''}
+                </div>
+                <div class="area-group-grid"></div>
             `;
-            btn.onclick = () => this.openDefectList(area);
-            listDiv.appendChild(btn);
+
+            const grid = groupEl.querySelector('.area-group-grid');
+            group.areas.forEach(area => {
+                const count = areaCounts[area] || 0;
+                const btn = document.createElement('button');
+                btn.className = 'area-btn';
+                btn.innerHTML = `
+                    <span class="area-name">${this.escapeHtml(area)}</span>
+                    ${count > 0 ? `<span class="area-badge">${count}</span>` : ''}
+                    <span class="area-arrow">&#8250;</span>
+                `;
+                btn.onclick = () => this.openDefectList(area);
+                grid.appendChild(btn);
+            });
+
+            listDiv.appendChild(groupEl);
         });
     },
 
